@@ -1,0 +1,3 @@
+Lege hier eigene Hintergrundfotos ab (JPG, PNG oder WEBP, am besten Hochformat).
+Ist der Ordner leer, erzeugt der Autopilot schöne Farbverläufe aus einstellungen.yml.
+Nur Fotos verwenden, die du selbst gemacht hast oder kommerziell nutzen darfst (z.B. von pexels.com oder unsplash.com).

@@ -1,0 +1,3 @@
+Lade hier deine eigenen Fotos und Videos hoch (Inhaltsart "eigene_medien").
+Fotos: JPG, PNG, WEBP oder HEIC (iPhone). Videos: MP4 oder MOV, kurze Clips, höchstens 25 MB pro Datei.
+Achtung: Das Repository ist öffentlich, nur Bilder hochladen, die jeder sehen darf.

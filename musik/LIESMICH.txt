@@ -1,0 +1,3 @@
+Lege hier Musik für Reels ab (MP3, WAV, M4A oder AAC). Pro Reel wird zufällig ein Titel gewählt.
+Ist der Ordner leer, sind die Reels stumm. Das ist erlaubt.
+Nur Musik verwenden, die du kommerziell nutzen darfst (z.B. Pixabay Music oder die YouTube Audio Library, Lizenz jeweils prüfen).

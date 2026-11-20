@@ -1,0 +1,152 @@
+# ============================================================
+#  Insta-Autopilot – Einstellungen
+#  Hier stellst du alles ein. Zeilen mit # sind nur Erklärungen.
+#  Wichtig: Einrückung (Leerzeichen am Zeilenanfang) nicht verändern!
+# ============================================================
+
+# Dein Instagram-Name OHNE @ (Sicherheitscheck: es wird nur auf
+# diesen Account gepostet, nie aus Versehen auf einen anderen).
+instagram_name: "dein_account_name"
+
+# Wird unten auf jedes Bild geschrieben. Leer lassen ("") = kein Name im Bild.
+name_im_bild: "@dein_account_name"
+
+# ------------------------------------------------------------
+#  Was soll gepostet werden? Genau EINE Inhaltsart eintragen:
+#    zitate         = Sprüche als Bild, Story und Reel (sofort startklar)
+#    geschichten    = KI-Story-Reels mit Bildern, Sprecher und Untertiteln
+#                     (braucht ein kostenloses Cloudflare-Konto, siehe Anleitung)
+#    eigene_medien  = Reels aus deinen eigenen Fotos und Videos (Ordner "medien")
+# ------------------------------------------------------------
+inhaltsart: "zitate"
+
+# ------------------------------------------------------------
+#  Zeitplan
+# ------------------------------------------------------------
+zeitplan:
+  # Deine Zeitzone, z.B. Europe/Berlin, Europe/Vienna, Europe/Zurich
+  zeitzone: "Europe/Berlin"
+
+  # Tages-Bild im Feed (nur bei inhaltsart "zitate")
+  bild:
+    aktiv: true
+    tage: [mo, di, mi, do, fr, sa, so]
+    uhrzeit: "18:00"
+
+  # Reel. Bei "geschichten" und "eigene_medien" ist das der Haupt-Post,
+  # dann z.B. tage: [mo, di, mi, do, fr, sa, so]
+  reel:
+    aktiv: true
+    tage: [so]
+    uhrzeit: "17:00"
+
+  # Story: postet den Haupt-Post des Tages zusätzlich als Story
+  # (bei "zitate" das Bild, sonst das Titelbild des Reels)
+  story:
+    aktiv: true
+
+# Reihenfolge der Inhalte aus inhalte/posts.csv:
+#   zufall          = zufällig, aber keine Wiederholung bis alle dran waren
+#   der_reihe_nach  = von oben nach unten
+reihenfolge: "zufall"
+
+# ------------------------------------------------------------
+#  Design
+# ------------------------------------------------------------
+design:
+  # Schrift für den Text: Poppins-Bold, Poppins-SemiBold oder Poppins-Regular
+  # (eigene .ttf-Datei in den Ordner "schriften" legen und hier den Namen eintragen)
+  schrift: "Poppins-Bold"
+  textfarbe: "#FFFFFF"
+
+  # Wie stark eigene Hintergrundfotos abgedunkelt werden (0 = gar nicht, 100 = schwarz)
+  abdunkeln: 40
+
+  # Liegen KEINE Fotos im Ordner "hintergruende", erzeugt der Autopilot
+  # Farbverläufe aus diesen Farbpaaren (von oben nach unten).
+  farbverlaeufe:
+    - ["#0F2027", "#2C5364"]
+    - ["#232526", "#414345"]
+    - ["#42275A", "#734B6D"]
+    - ["#1D2B64", "#5C4B51"]
+    - ["#134E5E", "#2B6B4F"]
+    - ["#3A1C71", "#B2475D"]
+
+# ------------------------------------------------------------
+#  Bildunterschrift (Caption) & Hashtags
+# ------------------------------------------------------------
+caption:
+  # Platzhalter: {text} = der Spruch, {autor} = Autor (falls angegeben),
+  # {hashtags} = automatisch ausgewählte Hashtags
+  vorlage: "{text}\n\n{autor}\n•\n\n{hashtags}"
+  anzahl_hashtags: 7
+
+hashtags:
+  # Aus dieser Liste werden immer ein paar genommen
+  allgemein: ["#mindset", "#motivation", "#zitate", "#zitatedestages", "#lebensweisheiten", "#persönlichkeitsentwicklung", "#mentalstärke"]
+  # Passend zur Spalte "kategorie" in posts.csv (Name muss genau gleich sein)
+  nach_kategorie:
+    Disziplin: ["#disziplin", "#selbstdisziplin", "#dranbleiben", "#konsequenz"]
+    Erfolg: ["#erfolg", "#erfolgreich", "#zielerreichen", "#businessmindset"]
+    Resilienz: ["#resilienz", "#innerestärke", "#niemalsaufgeben", "#stärkerwerden"]
+    Fokus: ["#fokus", "#konzentration", "#deepwork", "#produktivität"]
+    Wachstum: ["#weiterentwicklung", "#growthmindset", "#selfimprovement"]
+    Mut: ["#mut", "#komfortzoneverlassen", "#traudich", "#neuanfang"]
+    Gewohnheiten: ["#gewohnheiten", "#habits", "#routine", "#morgenroutine"]
+    Selbstliebe: ["#selbstliebe", "#selfcare", "#selbstakzeptanz", "#selbstwert"]
+    Mindset: ["#positivesdenken", "#gedankenkraft", "#mentaltraining"]
+
+# ------------------------------------------------------------
+#  Reel
+# ------------------------------------------------------------
+reel:
+  # Lautstärke der Musik aus dem Ordner "musik" (0.0 bis 1.0)
+  musik_lautstaerke: 0.3
+
+# ------------------------------------------------------------
+#  Nur für inhaltsart "geschichten"
+# ------------------------------------------------------------
+geschichten:
+  # Worum geht es auf deinem Account? Ein Satz, so konkret wie möglich.
+  # Beispiele zum Abschauen:
+  #   "Wahre Gruselgeschichten und rätselhafte Kriminalfälle"
+  #   "Vergessene Ereignisse der Weltgeschichte"
+  #   "Erstaunliche Tiere und Naturphänomene"
+  thema: "Erstaunliche wahre Geschichten aus Geschichte, Natur und Wissenschaft"
+
+  # Damit sucht der Autopilot passende Wikipedia-Artikel (deutsch und englisch).
+  # Je mehr Begriffe, desto mehr Abwechslung.
+  suchbegriffe: ["Naturphänomen", "Expedition", "Erfindung", "historisches Rätsel", "Entdeckung"]
+  suchbegriffe_englisch: ["natural phenomenon", "historical mystery", "famous expedition"]
+
+  # Optional: Artikel, die zuerst drankommen (genauer Titel aus Wikipedia)
+  startartikel: ["Mary Celeste", "Bärtierchen", "Tunguska-Ereignis"]
+
+  # Bildstil der KI-Bilder (auf Englisch)
+  bildstil: "cinematic realistic painting, dramatic lighting, rich colors"
+
+  # Farbe für hervorgehobene Wörter im Untertitel
+  akzentfarbe: "#F5B700"
+
+  # Sprecher: "thorsten" (deutsche Männerstimme, kostenlos) oder "aus" (nur Musik)
+  sprecher: "thorsten"
+  # Sprechtempo: 1.0 = normal, 0.9 = schneller, 1.1 = langsamer
+  sprechtempo: 1.0
+
+  # Text-KI: "cloudflare" (kostenlos) oder "claude" (optional, kostenpflichtig,
+  # braucht das Secret ANTHROPIC_API_KEY)
+  text_ki: "cloudflare"
+
+  # Feste Hashtags für jedes Reel (dazu kommen 2-3 passende zur Geschichte)
+  hashtags: ["#wahregeschichte", "#wissen", "#unglaublich", "#fakten"]
+
+# ------------------------------------------------------------
+#  Nur für inhaltsart "eigene_medien"
+# ------------------------------------------------------------
+eigene_medien:
+  # So viele Fotos/Videos aus dem Ordner "medien" kommen in ein Reel
+  pro_reel: 4
+  # So lange ist jedes Foto/Video zu sehen (Sekunden)
+  sekunden_pro_clip: 2.5
+  # Einen Spruch aus inhalte/posts.csv ins Reel schreiben? (true/false)
+  text_einblenden: true
