@@ -6,10 +6,10 @@
 
 # Dein Instagram-Name OHNE @ (Sicherheitscheck: es wird nur auf
 # diesen Account gepostet, nie aus Versehen auf einen anderen).
-instagram_name: "dein_account_name"
+instagram_name: "mindset_und.motivation"
 
 # Wird unten auf jedes Bild geschrieben. Leer lassen ("") = kein Name im Bild.
-name_im_bild: "@dein_account_name"
+name_im_bild: "@mindset_und.motivation"
 
 # ------------------------------------------------------------
 #  Was soll gepostet werden? Genau EINE Inhaltsart eintragen:
