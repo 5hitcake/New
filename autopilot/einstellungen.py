@@ -138,6 +138,9 @@ def pruefen(roh):
     beschreibung = str((roh.get("account") or {}).get("beschreibung") or "").strip()
     if art == "geschichten" and quelle == "wikipedia" and not beschreibung and not (g.get("suchbegriffe") or g.get("suchbegriffe_englisch") or g.get("startartikel")):
         raise KitFehler("geschichten: Trage mindestens einen Suchbegriff oder Startartikel ein.")
+    stimmung = str(g.get("stimmung", "auto")).strip().lower().replace("ü", "ue")
+    if stimmung not in ("auto", "neutral", "duester", "ruhig"):
+        raise KitFehler("geschichten → stimmung muss \"auto\", \"neutral\", \"düster\" oder \"ruhig\" sein.")
     tempo = float(g.get("sprechtempo", 1.0))
     if not 0.6 <= tempo <= 1.5:
         raise KitFehler("geschichten → sprechtempo muss zwischen 0.6 und 1.5 liegen.")
@@ -181,6 +184,7 @@ def pruefen(roh):
             "akzentfarbe": _farbe(g.get("akzentfarbe", "#E5484D"), "geschichten → akzentfarbe"),
             "sprecher": sprecher,
             "sprechtempo": tempo,
+            "stimmung": stimmung,
             "text_ki": text_ki,
             "hashtags": [str(x) for x in g.get("hashtags") or []],
         },

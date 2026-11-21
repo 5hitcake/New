@@ -120,9 +120,12 @@ Lehne den Text nur ab ("geeignet": false), wenn er Hass, Gewaltverherrlichung od
 enthält oder echte Privatpersonen bloßstellt.
 """,
     "fiktion": """
-Erfinde eine NEUE, frei erfundene Geschichte passend zum Thema. Sie darf nicht wie ein echtes Ereignis
-wirken: keine echten Personen, keine echten Firmen, keine echten Verbrechen, keine konkreten echten
-Daten. Erfundene Orte und Namen sind erlaubt. Gruselig oder spannend ja, aber ohne Splatter, ohne
+Erfinde eine NEUE, frei erfundene Geschichte, die genau zum Thema und zur Beschreibung des Accounts passt
+(Ort, Zeit, Stimmung). Sie darf nicht wie ein echtes Ereignis wirken: keine echten Personen, keine echten
+Firmen, keine echten Verbrechen, keine konkreten echten Daten. Erfundene Orte und Namen sind erlaubt.
+So wird sie gut: EIN konkreter Ort mit Namen, EINE Hauptfigur (oder "du"), sinnliche Details (Geräusche,
+Gerüche, Licht), jede Szene steigert die Spannung, die letzte Szene bringt eine überraschende Wendung.
+Keine allgemeinen Sätze wie "In alten Zeiten …" oder "Heute spuken noch Geister". Gruselig oder spannend ja, aber ohne Splatter, ohne
 Gewalt an Kindern, ohne sexuelle Inhalte. Gib der Geschichte zusätzlich einen kurzen "titel".
 """,
 }
@@ -140,7 +143,7 @@ Antworte NUR mit JSON in genau diesem Format:
 REGELN = """Regeln:
 - hook.text: 1 packender Satz, höchstens 14 Wörter. Beginne mit einem konkreten, überraschenden
   Detail, keine Zusammenfassung.
-- {szenen} Szenen mit je 9 bis 16 Wörtern. Bogen: Ort und Zeit, Ereignis, überraschendes Detail,
+- {szenen} Szenen mit je 12 bis 18 Wörtern, jede Szene ein ganzer, bildhafter Satz. Bogen: Ort und Zeit, Ereignis, überraschendes Detail,
   Erklärungen oder Theorien, Auflösung oder offenes Ende. Kein Fülltext.
 - "frage": kurze Frage an die Zuschauer, höchstens 8 Wörter, endet mit "?".
 - Kurze Sätze zum Vorlesen, Zahlen als Ziffern, keine Emojis. Jeder Satz endet mit . ? oder !
@@ -183,8 +186,8 @@ def pruefen(skript, soll=6):
     for i, s in enumerate(szenen, 1):
         if not isinstance(s, dict) or not s.get("text") or not s.get("bild"):
             p.append(f"Szene {i} braucht text und bild")
-        elif not 5 <= _woerter(s["text"]) <= 22:
-            p.append(f"Szene {i} hat {_woerter(s['text'])} Wörter (9 bis 16)")
+        elif not 9 <= _woerter(s["text"]) <= 24:
+            p.append(f"Szene {i} hat {_woerter(s['text'])} Wörter, nötig sind 12 bis 18")
     frage = str(skript.get("frage", ""))
     if not frage.endswith("?") or _woerter(frage) > 10:
         p.append("frage muss kurz sein und mit ? enden")
