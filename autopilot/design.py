@@ -2,9 +2,9 @@
 import os
 import random
 
-from PIL import Image, ImageDraw, ImageFilter, ImageFont
+from PIL import Image, ImageDraw, ImageFilter, ImageFont, ImageOps
 
-from .einstellungen import HINTERGRUENDE, SCHRIFTEN
+from .einstellungen import HINTERGRUENDE, ROOT, SCHRIFTEN
 
 FEED = (1080, 1350)
 HOCH = (1080, 1920)
@@ -79,8 +79,9 @@ def _farbverlauf(oben, unten, groesse, saat):
 
 def hintergrund(cfg, schluessel, groesse):
     art, _, wert = schluessel.partition(":")
-    if art == "foto":
-        bild = _cover(Image.open(os.path.join(HINTERGRUENDE, wert)).convert("RGB"), groesse)
+    if art in ("foto", "datei"):
+        pfad = os.path.join(HINTERGRUENDE, wert) if art == "foto" else os.path.join(ROOT, wert)
+        bild = _cover(ImageOps.exif_transpose(Image.open(pfad)).convert("RGB"), groesse)
         dunkel = Image.new("RGB", groesse, (0, 0, 0))
         return Image.blend(bild, dunkel, cfg["abdunkeln"] / 100)
     oben, unten = cfg["farbverlaeufe"][int(wert) % len(cfg["farbverlaeufe"])]
@@ -151,9 +152,11 @@ def text_ebene(cfg, eintrag, groesse, mit_band=False):
     return ebene
 
 
-def bild_zeichnen(cfg, eintrag, hintergrund_schluessel, groesse, ziel):
+def bild_zeichnen(cfg, eintrag, hintergrund_schluessel, groesse, ziel, mit_text=True):
+    if not mit_text:
+        cfg = {**cfg, "abdunkeln": min(cfg["abdunkeln"], 10)}
     basis = hintergrund(cfg, hintergrund_schluessel, groesse).convert("RGBA")
-    fertig = Image.alpha_composite(basis, text_ebene(cfg, eintrag, groesse))
+    fertig = Image.alpha_composite(basis, text_ebene(cfg, eintrag, groesse)) if mit_text else basis
     fertig.convert("RGB").save(ziel, "JPEG", quality=92)
     return ziel
 

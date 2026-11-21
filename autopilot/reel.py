@@ -12,9 +12,10 @@ FPS = 30
 MUSIKENDUNGEN = (".mp3", ".wav", ".m4a", ".aac")
 
 
-def dauer(text):
-    """Lesezeit: ca. 2,5 Wörter pro Sekunde plus Puffer, zwischen 6 und 14 Sekunden."""
-    return round(max(6.0, min(14.0, len(text.split()) / 2.5 + 3.0)), 1)
+def dauer(text, mindestens=0.0):
+    """Lesezeit: ca. 2,5 Wörter pro Sekunde plus Puffer, zwischen 6 und 14 Sekunden,
+    mindestens so lang wie in einstellungen.yml (reel → mindestdauer)."""
+    return round(max(6.0, mindestens, min(14.0, len(text.split()) / 2.5 + 3.0)), 1)
 
 
 def musik_waehlen(zufall=random):
@@ -31,7 +32,7 @@ def reel_bauen(cfg, eintrag, hintergrund_schluessel, ziel, musik=None):
     hintergrund(cfg, hintergrund_schluessel, HOCH).save(hg_pfad)
     text_ebene(cfg, eintrag, HOCH, mit_band=True).save(text_pfad)
 
-    sekunden = dauer(eintrag["text"])
+    sekunden = dauer(eintrag["text"], cfg.get("mindestdauer", 0))
     frames = int(sekunden * FPS)
     w, h = HOCH
     bild = (

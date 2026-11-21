@@ -8,6 +8,7 @@
 import argparse
 import json
 import os
+import random
 import shutil
 import subprocess
 import sys
@@ -15,7 +16,7 @@ import tempfile
 import time
 from datetime import datetime
 
-from . import design, inhalte, instagram, reel, reels, sprueche
+from . import design, inhalte, instagram, profil, reel, reels, sprueche
 from .einstellungen import AUSGABE, ROOT, VERLAUF, KitFehler, laden
 
 AKTIONEN = ("automatisch", "setup-pruefen", "vorschau", "jetzt-posten", "jetzt-story-posten", "token-erneuern")
@@ -67,15 +68,70 @@ def _rel(pfad):
 
 # ---------------------------------------------------------------- erstellen
 
+def haupt_heute(cfg, jetzt):
+    """Welcher Post ist heute der Haupt-Post (für die Story)? Das Bild, wenn heute eins geplant ist,
+    sonst das Reel. Ist heute nichts geplant: das zuerst aktive Format."""
+    plan, tag = cfg["plan"], jetzt.weekday()
+    bei = plan["story"].get("bei", "beidem")
+    for typ in ("bild", "reel") if bei == "beidem" else (bei, "bild", "reel"):
+        if plan[typ]["aktiv"] and tag in plan[typ]["tage"]:
+            return typ
+    return "bild" if plan["bild"]["aktiv"] else "reel"
+
+
+def _hintergrund_fuer(cfg, verlauf, eintrag, stempel, hoch=False):
+    """Hintergrund-Schlüssel je nach bildpost → stil. KI-Bilder fallen bei Ausfall auf Farbverläufe zurück."""
+    stil = cfg["bildpost"]
+    if stil.startswith("ki"):
+        from . import ki_bilder
+
+        motiv = eintrag.get("bild") or cfg["bildmotiv"] or cfg["texte"]["thema"]
+        bild = ki_bilder.erzeugen(f"{motiv}, {cfg['bildstil'] or 'cinematic photo, soft light'}, "
+                                  f"{'vertical 9:16' if hoch else 'portrait 4:5'}, no text, no letters")
+        if bild is not None:
+            datei = os.path.join(AUSGABE, f"hg_{stempel}{'_hoch' if hoch else ''}.png")
+            bild.save(datei)
+            return "datei:" + _rel(datei)
+        print("Hinweis: KI-Bild nicht verfügbar, nehme Farbverlauf.")
+    if stil == "eigene_fotos":
+        fotos = [f for f in reels.eigene_medien_liste() if f.lower().endswith(design.BILDENDUNGEN + (".heic", ".heif"))]
+        if fotos:
+            zuletzt = verlauf.get("fotos_benutzt", [])
+            frei = [f for f in fotos if f not in zuletzt] or fotos
+            wahl = random.choice(frei)
+            verlauf["fotos_benutzt"] = (zuletzt + [wahl])[-max(1, len(fotos) - 1):]
+            return "datei:medien/" + wahl
+        print("Hinweis: keine Fotos im Ordner medien, nehme Farbverlauf.")
+    return design.hintergrund_waehlen(cfg, verlauf)
+
+
+def _hg_gueltig(schluessel):
+    if not schluessel or not schluessel.startswith("datei:"):
+        return bool(schluessel)
+    return os.path.exists(os.path.join(ROOT, schluessel[6:]))
+
+
+def mit_profil(cfg, verlauf):
+    """Leere Einstellungen aus der Account-Beschreibung ergänzen (KI, einmalig, im Verlauf gemerkt)."""
+    if cfg["beschreibung"]:
+        profil.anwenden(cfg, profil.holen(cfg, verlauf))
+    return cfg
+
+
 def _zitat_fuer_story(cfg, verlauf, eintraege):
-    """Die Story zeigt den Spruch des heutigen Bildes (gleicher Hintergrund)."""
+    """Die Story zeigt den Text des heutigen Haupt-Posts (beim Bild mit gleichem Hintergrund)."""
+    if haupt_heute(cfg, _jetzt(cfg)) == "reel":
+        rp = _lesen("reel")
+        if rp and rp.get("eintrag"):
+            return rp["eintrag"], None
     bild = _lesen("bild")
     if bild and bild.get("eintrag"):
-        return bild["eintrag"], bild["hintergrund"]
+        return bild["eintrag"], bild["hintergrund"] if _hg_gueltig(bild["hintergrund"]) else None
     heute = verlauf["heute_bild"]
     if heute.get("datum") == _jetzt(cfg).date().isoformat():
         if heute.get("eintrag"):
-            return heute["eintrag"], heute.get("hintergrund")
+            hg = heute.get("hintergrund")
+            return heute["eintrag"], hg if _hg_gueltig(hg) else None
         if cfg["texte"]["quelle"] == "datei":
             eintraege = eintraege or inhalte.posts_laden()
             treffer = [e for e in eintraege if e["id"] == heute.get("id")]
@@ -90,7 +146,7 @@ def erstellen(cfg, typ, verlauf=None, eintraege=None, sprecher_fabrik=None):
     stempel = _jetzt(cfg).strftime("%Y%m%d_%H%M")
     art = cfg["inhaltsart"]
 
-    if typ == "story" and art != "zitate":
+    if typ == "story" and haupt_heute(cfg, _jetzt(cfg)) == "reel" and art != "zitate":
         reel_post = _lesen("reel")
         if not reel_post or not reel_post.get("titelbild"):
             raise KitFehler("Die Story zeigt das Titelbild des Reels. Es gibt heute noch kein Reel.")
@@ -104,9 +160,10 @@ def erstellen(cfg, typ, verlauf=None, eintraege=None, sprecher_fabrik=None):
             eintrag, hg = _zitat_fuer_story(cfg, verlauf, eintraege)
         else:
             eintrag, hg = sprueche.naechster_spruch(cfg, verlauf, "bild", eintraege), None
-        hg = hg or design.hintergrund_waehlen(cfg, verlauf)
+        hg = hg or _hintergrund_fuer(cfg, verlauf, eintrag, stempel, hoch=typ == "story")
         datei = os.path.join(AUSGABE, f"{typ}_{stempel}_{eintrag['id']}.jpg")
-        design.bild_zeichnen(cfg, eintrag, hg, design.FEED if typ == "bild" else design.HOCH, datei)
+        design.bild_zeichnen(cfg, eintrag, hg, design.FEED if typ == "bild" else design.HOCH, datei,
+                             mit_text=cfg["bildpost"] != "ki_ohne_text")
         return _schreiben({"typ": typ, "datei": _rel(datei), "eintrag_id": eintrag["id"], "text": eintrag["text"],
                            "hintergrund": hg, "eintrag": eintrag,
                            "caption": "" if typ == "story" else inhalte.caption_bauen(cfg, eintrag)})
@@ -115,7 +172,7 @@ def erstellen(cfg, typ, verlauf=None, eintraege=None, sprecher_fabrik=None):
     musik = reel.musik_waehlen()
     if art == "zitate":
         eintrag = sprueche.naechster_spruch(cfg, verlauf, "reel", eintraege)
-        hg = design.hintergrund_waehlen(cfg, verlauf)
+        hg = _hintergrund_fuer(cfg, verlauf, eintrag, stempel, hoch=True)
         datei = os.path.join(AUSGABE, f"reel_{stempel}_{eintrag['id']}.mp4")
         reel.reel_bauen(cfg, eintrag, hg, datei, musik=musik)
         return _schreiben({"typ": "reel", "datei": _rel(datei), "eintrag_id": eintrag["id"], "text": eintrag["text"],
@@ -225,7 +282,7 @@ def _cloudflare_ok():
     return False, "Cloudflare lehnt den API-Token ab. Account-ID und Token prüfen (Anleitung: Cloudflare)"
 
 
-NAMEN = {"zitate": "Zitat-Posts", "geschichten": "KI-Story-Reels", "eigene_medien": "Reels aus eigenen Medien"}
+NAMEN = {"zitate": "Text-Reels", "geschichten": "Story-Reels", "eigene_medien": "Reels aus eigenen Medien"}
 
 
 def pruefen():
@@ -241,15 +298,29 @@ def pruefen():
 
     try:
         cfg = laden()
-        ok(f"einstellungen.yml in Ordnung: @{cfg['instagram_name']}, Inhaltsart {NAMEN[cfg['inhaltsart']]}")
+        formate = [n for t, n in (("bild", "Bild-Posts"), ("reel", NAMEN[cfg["inhaltsart"]])) if cfg["plan"][t]["aktiv"]]
+        ok(f"einstellungen.yml in Ordnung: @{cfg['instagram_name']}, {' + '.join(formate) or 'nichts geplant'}")
     except KitFehler as exc:
         schlecht(str(exc))
         cfg = None
 
     art = cfg["inhaltsart"] if cfg else None
-    braucht_text = art == "zitate" or (art == "eigene_medien" and cfg["eigene_medien"]["text_einblenden"])
+    if cfg and cfg["beschreibung"]:
+        verlauf = inhalte.verlauf_laden()
+        try:
+            mit_profil(cfg, verlauf)
+            ok(profil.zusammenfassung(cfg))
+            if os.environ.get("GITHUB_ACTIONS"):
+                inhalte.verlauf_speichern(verlauf)
+        except KitFehler as exc:
+            schlecht(str(exc))
+    braucht_text = cfg is not None and (art == "zitate" or cfg["plan"]["bild"]["aktiv"]
+                                         or (art == "eigene_medien" and cfg["eigene_medien"]["text_einblenden"]))
     if braucht_text and cfg["texte"]["quelle"] == "ki":
-        ok(f"Sprüche: die KI schreibt neue zum Thema „{cfg['texte']['thema']}“")
+        ok(f"Texte: die KI schreibt neue zum Thema „{cfg['texte']['thema'] or cfg['beschreibung'][:60]}“")
+        erfolg, text = _cloudflare_ok()
+        (ok if erfolg else schlecht)(text)
+    if cfg and cfg["bildpost"].startswith("ki") and cfg["plan"]["bild"]["aktiv"] and not braucht_text:
         erfolg, text = _cloudflare_ok()
         (ok if erfolg else schlecht)(text)
     elif braucht_text:
@@ -327,7 +398,10 @@ def pruefen():
                 tage = ", ".join(tage_namen[t] for t in p["tage"])
                 ok(f"{typ.capitalize()}: {tage} ab {p['uhrzeit'][0]:02d}:{p['uhrzeit'][1]:02d} Uhr")
         if cfg["plan"]["story"]["aktiv"]:
-            ok("Story: zusammen mit dem " + ("Tages-Bild" if art == "zitate" else "Reel"))
+            ok("Story: " + {"beidem": "zu jedem Post des Tages", "bild": "nur an Bild-Tagen",
+                             "reel": "nur an Reel-Tagen"}[cfg["plan"]["story"]["bei"]])
+        if not cfg["plan"]["bild"]["aktiv"] and not cfg["plan"]["reel"]["aktiv"]:
+            schlecht("Im Zeitplan ist weder Bild noch Reel aktiv: es wird nichts gepostet")
 
     zeilen += ["", "**Alles bereit!** 🎉" if not fehler else f"**{fehler} Punkt(e) noch offen.** Siehe ❌ oben."]
     text = "\n".join(zeilen)
@@ -340,7 +414,8 @@ def pruefen():
 
 def vorschau(cfg, sprecher_fabrik=None):
     verlauf = inhalte.verlauf_laden()  # wird NICHT gespeichert
-    typen = (["bild"] if cfg["inhaltsart"] == "zitate" else []) + ["reel", "story"]
+    mit_profil(cfg, verlauf)
+    typen = [t for t in ("bild", "reel") if cfg["plan"][t]["aktiv"]] + ["story"]
     teile = ["## Vorschau (nichts wurde gepostet)", "", "Unten unter **Artifacts** → *vorschau* herunterladen.", ""]
     for typ in typen:
         post = erstellen(cfg, typ, verlauf, sprecher_fabrik=sprecher_fabrik)
@@ -396,7 +471,9 @@ def verlauf_sichern():
 
 def lauf(aktion, bereitstellen=None):
     if aktion == "setup-pruefen":
-        return 0 if pruefen() else 1
+        ergebnis = pruefen()
+        verlauf_sichern()
+        return 0 if ergebnis else 1
     cfg = laden()
     if aktion == "vorschau":
         vorschau(cfg)
@@ -404,7 +481,8 @@ def lauf(aktion, bereitstellen=None):
 
     bereitstellen = bereitstellen or medien_bereitstellen
     verlauf = inhalte.verlauf_laden()
-    haupt = "bild" if cfg["inhaltsart"] == "zitate" else "reel"
+    jetzt = _jetzt(cfg)
+    haupt = haupt_heute(cfg, jetzt)
     nur_story = aktion == "jetzt-story-posten"
     if aktion == "automatisch":
         typen = inhalte.faellig(cfg, verlauf, _jetzt(cfg))
@@ -412,9 +490,10 @@ def lauf(aktion, bereitstellen=None):
                  and inhalte.token_faellig(verlauf, _jetzt(cfg).date()))
         inhalte.verlauf_speichern(verlauf)
     elif aktion == "jetzt-posten":
-        typen, token = [haupt] + (["story"] if cfg["plan"]["story"]["aktiv"] else []), False
+        heute = [t for t in ("bild", "reel") if cfg["plan"][t]["aktiv"] and jetzt.weekday() in cfg["plan"][t]["tage"]]
+        typen, token = (heute or [haupt]) + (["story"] if cfg["plan"]["story"]["aktiv"] else []), False
     elif nur_story:
-        typen, token = ([haupt, "story"] if haupt == "reel" else ["story"]), False
+        typen, token = ([haupt, "story"] if haupt == "reel" and cfg["inhaltsart"] != "zitate" else ["story"]), False
     else:
         typen, token = [], aktion == "token-erneuern"
     if not typen and not token:
@@ -424,6 +503,7 @@ def lauf(aktion, bereitstellen=None):
 
     fehler = 0
     try:
+        mit_profil(cfg, verlauf)
         erzeugt = []
         for typ in typen:
             try:
@@ -433,9 +513,10 @@ def lauf(aktion, bereitstellen=None):
                 print(f"::error::{exc}")
                 _zusammenfassung(f"❌ {typ}: {exc}")
                 fehler = 1
-        if "wiki_abgelehnt" in verlauf:  # ungeeignete Artikel nicht jeden Tag erneut prüfen
+        merken = {k: verlauf[k] for k in ("wiki_abgelehnt", "profil", "fotos_benutzt") if k in verlauf}
+        if merken:  # z.B. ungeeignete Artikel nicht jeden Tag erneut prüfen
             gespeichert = inhalte.verlauf_laden()
-            gespeichert["wiki_abgelehnt"] = verlauf["wiki_abgelehnt"]
+            gespeichert.update(merken)
             inhalte.verlauf_speichern(gespeichert)
         posten_liste = [t for t in erzeugt if not (nur_story and t == "reel" and haupt == "reel")]
         if posten_liste:
@@ -471,7 +552,9 @@ def main(argv=None):
         if args.befehl == "vorschau":
             vorschau(cfg)
         else:
-            erstellen(cfg, args.typ)
+            verlauf = inhalte.verlauf_laden()
+            mit_profil(cfg, verlauf)
+            erstellen(cfg, args.typ, verlauf)
     except KitFehler as exc:
         print(f"::error::{exc}" if os.environ.get("GITHUB_ACTIONS") else f"FEHLER: {exc}")
         _zusammenfassung(f"❌ {exc}")

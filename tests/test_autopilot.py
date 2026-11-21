@@ -52,8 +52,12 @@ def test_mitgelieferte_einstellungen_sonst_gueltig():
     with open(einstellungen.EINSTELLUNGEN, encoding="utf-8") as f:
         roh = yaml.safe_load(f)
     roh["instagram_name"] = "mein_account"
+    with pytest.raises(KitFehler, match="Beschreibe deinen Account"):
+        pruefen(roh)
+    roh["account"]["beschreibung"] = "Tipps für Hobbygärtner auf dem Balkon, locker und praktisch."
     cfg = pruefen(roh)
-    assert cfg["plan"]["reel"]["tage"] == [6]
+    assert cfg["plan"]["reel"]["tage"] == [6] and cfg["texte"]["quelle"] == "ki"
+    assert cfg["bildpost"] == "ki_mit_text" and cfg["geschichten"]["szenen"] == 6
     assert len(cfg["farbverlaeufe"]) >= 3
 
 
@@ -81,11 +85,9 @@ def test_yaml_tippfehler_nennt_zeile(tmp_path):
 
 # ---------------------------------------------------------------- Inhalte
 
-def test_mitgelieferte_posts_csv_laedt():
-    eintraege = inhalte.posts_laden()
-    assert len(eintraege) > 100
-    assert all(e["text"] for e in eintraege)
-
+def test_leere_posts_csv_erklaert():
+    with pytest.raises(KitFehler, match="keine Texte"):
+        inhalte.posts_laden()
 
 def test_csv_mit_komma_und_ohne_optionale_spalten(tmp_path):
     datei = tmp_path / "p.csv"

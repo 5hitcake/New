@@ -52,7 +52,7 @@ def geschichten_reel(cfg, skript, ziel, musik=None, sprecher=None, bild_quelle=N
         prompts = [skript["hook"]["bild"]] + [s["bild"] for s in skript["szenen"]]
         bilder, quellen = [], []
         for i, prompt in enumerate(prompts):
-            bild = bild_quelle(f"{prompt}, {g['bildstil']}, vertical 9:16, no text")
+            bild = bild_quelle(f"{prompt}, {g['bildstil'] or 'cinematic painting, dramatic light'}, vertical 9:16, no text")
             if bild is None:
                 bild = design.hintergrund(cfg, f"verlauf:{zufall.randrange(len(cfg['farbverlaeufe']))}", design.HOCH)
                 quellen.append("farbverlauf")

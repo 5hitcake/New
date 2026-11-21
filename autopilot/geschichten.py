@@ -101,14 +101,14 @@ KOPF = """Du schreibst Skripte für ca. 45 Sekunden lange Instagram-Reels auf De
 liest den Text vor, der Text steht auch im Bild. Zu jeder Szene wird ein KI-Bild erzeugt.
 
 Thema des Accounts: {thema}
-"""
+{beschreibung}"""
 
 QUELLEN_REGELN = {
     "wikipedia": """
 WICHTIGSTE REGEL: Verwende AUSSCHLIESSLICH Fakten aus dem Wikipedia-Artikel. Erfinde keine Namen,
 Zahlen, Daten, Zitate oder Details. Ist etwas ungeklärt oder umstritten, sag das klar.
 
-Lehne den Artikel ab ("geeignet": false), wenn er nicht zum Thema passt, zu wenig Stoff für 6 Szenen
+Lehne den Artikel ab ("geeignet": false), wenn er nicht zum Thema passt, zu wenig Stoff für {szenen} Szenen
 hat, Kinder Opfer von Gewalt sind, sexuelle Gewalt im Mittelpunkt steht, es um lebende Privatpersonen
 nach 2010 geht oder er Hass, Terror oder menschenverachtende Verschwörungsmythen fördern könnte.
 """,
@@ -131,7 +131,7 @@ FORMAT = """
 Antworte NUR mit JSON in genau diesem Format:
 {"geeignet": true, "grund": "kurz", "titel": "...",
  "hook": {"text": "...", "bild": "..."},
- "szenen": [{"text": "...", "bild": "..."}, ... genau 6 Szenen ...],
+ "szenen": [{"text": "...", "bild": "..."}, ... genau {szenen} Szenen ...],
  "frage": "...",
  "hashtags": ["#...", "#..."]}
 
@@ -140,7 +140,7 @@ Antworte NUR mit JSON in genau diesem Format:
 REGELN = """Regeln:
 - hook.text: 1 packender Satz, höchstens 14 Wörter. Beginne mit einem konkreten, überraschenden
   Detail, keine Zusammenfassung.
-- 6 Szenen mit je 9 bis 16 Wörtern. Bogen: Ort und Zeit, Ereignis, überraschendes Detail,
+- {szenen} Szenen mit je 9 bis 16 Wörtern. Bogen: Ort und Zeit, Ereignis, überraschendes Detail,
   Erklärungen oder Theorien, Auflösung oder offenes Ende. Kein Fülltext.
 - "frage": kurze Frage an die Zuschauer, höchstens 8 Wörter, endet mit "?".
 - Kurze Sätze zum Vorlesen, Zahlen als Ziffern, keine Emojis. Jeder Satz endet mit . ? oder !
@@ -151,8 +151,10 @@ REGELN = """Regeln:
 - "hashtags": 2 bis 3 passende deutsche Hashtags."""
 
 
-def system_prompt(thema, quelle="wikipedia"):
-    return KOPF.format(thema=thema) + QUELLEN_REGELN[quelle] + FORMAT + REGELN
+def system_prompt(thema, quelle="wikipedia", szenen=6, beschreibung=""):
+    zusatz = f"Beschreibung des Accounts: {beschreibung}\n" if beschreibung else ""
+    text = KOPF.format(thema=thema, beschreibung=zusatz) + QUELLEN_REGELN[quelle] + FORMAT + REGELN
+    return text.replace("{szenen}", str(szenen))
 
 
 def _json_aus(text):
@@ -167,7 +169,7 @@ def _woerter(text):
     return len(re.sub(r"[*]", "", text).split())
 
 
-def pruefen(skript):
+def pruefen(skript, soll=6):
     """Liste von Problemen; leer = in Ordnung."""
     p = []
     hook = skript.get("hook") or {}
@@ -176,8 +178,8 @@ def pruefen(skript):
     elif _woerter(hook["text"]) > 16:
         p.append("hook ist zu lang (max. 14 Wörter)")
     szenen = skript.get("szenen") or []
-    if not 5 <= len(szenen) <= 8:
-        p.append(f"es müssen 6 Szenen sein, nicht {len(szenen)}")
+    if not max(3, soll - 1) <= len(szenen) <= soll + 2:
+        p.append(f"es müssen {soll} Szenen sein, nicht {len(szenen)}")
     for i, s in enumerate(szenen, 1):
         if not isinstance(s, dict) or not s.get("text") or not s.get("bild"):
             p.append(f"Szene {i} braucht text und bild")
@@ -255,7 +257,8 @@ def skript_schreiben(g, titel, text, chat=None, quelle="wikipedia"):
         nutzer = f'Text des Nutzers "{titel}".{hinweis}\n\n{text}'
     else:
         nutzer = f'Wikipedia-Artikel "{titel}".{hinweis}\n\n{text}'
-    nachrichten = [{"role": "system", "content": system_prompt(g["thema"], quelle)},
+    nachrichten = [{"role": "system", "content": system_prompt(g["thema"] or "Spannende Geschichten", quelle,
+                                                               g.get("szenen", 6), g.get("beschreibung", ""))},
                    {"role": "user", "content": nutzer}]
     if chat is None:
         if g["text_ki"] == "claude":
@@ -278,7 +281,7 @@ def skript_schreiben(g, titel, text, chat=None, quelle="wikipedia"):
                 continue
             if not skript.get("geeignet", True):
                 return None, f"passt nicht: {skript.get('grund', '')}"
-            probleme = pruefen(skript)
+            probleme = pruefen(skript, g.get("szenen", 6))
             if not probleme:
                 return aufraeumen(skript), None
             fehler.append(f"{modell}: {'; '.join(probleme[:2])}")

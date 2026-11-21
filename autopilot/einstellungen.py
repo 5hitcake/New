@@ -20,6 +20,7 @@ WOCHENTAGE = ["mo", "di", "mi", "do", "fr", "sa", "so"]
 TYPEN = ("bild", "reel", "story")
 INHALTSARTEN = ("zitate", "geschichten", "eigene_medien")
 QUELLEN = ("wikipedia", "fiktion", "eigene_texte")
+BILDSTILE = ("ki_mit_text", "ki_ohne_text", "text", "eigene_fotos")
 EIGENE_TEXTE = os.path.join(ROOT, "inhalte", "geschichten.txt")
 
 
@@ -91,7 +92,11 @@ def pruefen(roh):
             "tage": _tage(teil.get("tage", WOCHENTAGE), f"zeitplan → {typ} → tage"),
             "uhrzeit": _uhrzeit(teil.get("uhrzeit", "18:00"), f"zeitplan → {typ} → uhrzeit"),
         }
-    plan["story"] = {"aktiv": bool((zp.get("story") or {}).get("aktiv", False))}
+    st = zp.get("story") or {}
+    bei = str(st.get("bei", "beidem")).strip().lower()
+    if bei not in ("beidem", "bild", "reel"):
+        raise KitFehler("zeitplan → story → bei muss \"beidem\", \"bild\" oder \"reel\" sein.")
+    plan["story"] = {"aktiv": bool(st.get("aktiv", False)), "bei": bei}
 
     reihenfolge = str(roh.get("reihenfolge", "zufall")).strip()
     if reihenfolge not in ("zufall", "der_reihe_nach"):
@@ -120,8 +125,6 @@ def pruefen(roh):
     art = str(roh.get("inhaltsart", "zitate")).strip().lower()
     if art not in INHALTSARTEN:
         raise KitFehler(f"inhaltsart '{art}' gibt es nicht. Erlaubt: {', '.join(INHALTSARTEN)}.")
-    if art != "zitate":
-        plan["bild"]["aktiv"] = False  # Feed-Bilder gibt es nur bei Zitaten
     g = roh.get("geschichten") or {}
     sprecher = str(g.get("sprecher", "thorsten")).strip().lower()
     if sprecher not in ("thorsten", "aus"):
@@ -132,7 +135,8 @@ def pruefen(roh):
     quelle = str(g.get("quelle", "wikipedia")).strip().lower()
     if quelle not in QUELLEN:
         raise KitFehler(f"geschichten → quelle '{quelle}' gibt es nicht. Erlaubt: {', '.join(QUELLEN)}.")
-    if art == "geschichten" and quelle == "wikipedia" and not (g.get("suchbegriffe") or g.get("suchbegriffe_englisch") or g.get("startartikel")):
+    beschreibung = str((roh.get("account") or {}).get("beschreibung") or "").strip()
+    if art == "geschichten" and quelle == "wikipedia" and not beschreibung and not (g.get("suchbegriffe") or g.get("suchbegriffe_englisch") or g.get("startartikel")):
         raise KitFehler("geschichten: Trage mindestens einen Suchbegriff oder Startartikel ein.")
     tempo = float(g.get("sprechtempo", 1.0))
     if not 0.6 <= tempo <= 1.5:
@@ -144,8 +148,19 @@ def pruefen(roh):
     texte_ki = str(t.get("text_ki", "cloudflare")).strip().lower()
     if texte_ki not in ("cloudflare", "claude"):
         raise KitFehler("texte → text_ki muss \"cloudflare\" oder \"claude\" sein.")
-    if texte_quelle == "ki" and not str(t.get("thema", "")).strip():
-        raise KitFehler("texte → thema: Bei quelle \"ki\" bitte ein Thema eintragen, z.B. \"Fitness und gesunde Gewohnheiten\".")
+    if texte_quelle == "ki" and not str(t.get("thema", "")).strip() and not beschreibung:
+        raise KitFehler("Beschreibe deinen Account in einstellungen.yml unter account → beschreibung "
+                        "(oder trag bei texte → thema ein Thema ein). Daraus schreibt die KI die Texte.")
+    bp = roh.get("bildpost") or {}
+    bildstil_post = str(bp.get("stil", "text")).strip().lower()
+    if bildstil_post not in BILDSTILE:
+        raise KitFehler(f"bildpost → stil '{bildstil_post}' gibt es nicht. Erlaubt: {', '.join(BILDSTILE)}.")
+    mindestdauer = float(reel.get("mindestdauer", 0) or 0)
+    if not 0 <= mindestdauer <= 60:
+        raise KitFehler("reel → mindestdauer muss zwischen 0 und 60 Sekunden liegen.")
+    szenen = int(g.get("szenen", 6))
+    if not 3 <= szenen <= 10:
+        raise KitFehler("geschichten → szenen muss zwischen 3 und 10 liegen.")
     m = roh.get("eigene_medien") or {}
     pro_reel = int(m.get("pro_reel", 4))
     sek = float(m.get("sekunden_pro_clip", 2.5))
@@ -156,11 +171,13 @@ def pruefen(roh):
         "inhaltsart": art,
         "geschichten": {
             "quelle": quelle,
-            "thema": str(g.get("thema", "")).strip() or "Wahre, spannende Geschichten",
+            "beschreibung": beschreibung,
+            "thema": str(g.get("thema", "")).strip(),
+            "szenen": szenen,
             "suchbegriffe": [str(x) for x in g.get("suchbegriffe") or []],
             "suchbegriffe_englisch": [str(x) for x in g.get("suchbegriffe_englisch") or []],
             "startartikel": [str(x) for x in g.get("startartikel") or []],
-            "bildstil": str(g.get("bildstil", "cinematic painting")).strip(),
+            "bildstil": str(g.get("bildstil", "")).strip(),
             "akzentfarbe": _farbe(g.get("akzentfarbe", "#E5484D"), "geschichten → akzentfarbe"),
             "sprecher": sprecher,
             "sprechtempo": tempo,
@@ -170,7 +187,7 @@ def pruefen(roh):
         "texte": {
             "quelle": texte_quelle,
             "thema": str(t.get("thema", "")).strip(),
-            "stil": str(t.get("stil", "")).strip() or "kurz, positiv, direkt, in der Du-Form",
+            "stil": str(t.get("stil", "")).strip(),
             "text_ki": texte_ki,
         },
         "eigene_medien": {
@@ -178,6 +195,11 @@ def pruefen(roh):
             "sekunden_pro_clip": sek,
             "text_einblenden": bool(m.get("text_einblenden", True)),
         },
+        "beschreibung": beschreibung,
+        "bildpost": bildstil_post,
+        "bildstil": str(bp.get("bildstil", "")).strip(),
+        "bildmotiv": str(bp.get("motiv", "")).strip(),
+        "mindestdauer": mindestdauer,
         "instagram_name": name,
         "instagram_konto_id": konto_id or None,
         "name_im_bild": str(roh.get("name_im_bild", f"@{name}") or ""),

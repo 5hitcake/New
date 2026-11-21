@@ -80,7 +80,7 @@ def dauer_von(pfad):
 def test_inhaltsart_wird_geprueft():
     with pytest.raises(KitFehler, match="inhaltsart"):
         basis("videos")
-    assert basis("geschichten")["plan"]["bild"]["aktiv"] is False  # Feed-Bilder nur bei Zitaten
+    assert basis("geschichten")["plan"]["bild"]["aktiv"] is True  # Mix aus Bildern und Reels erlaubt
 
 
 def test_geschichten_brauchen_suchbegriffe():
@@ -403,3 +403,58 @@ def test_ki_spruch_und_caption(monkeypatch):
 def test_ki_braucht_thema():
     with pytest.raises(KitFehler, match="thema"):
         pruefen({"instagram_name": "test", "texte": {"quelle": "ki", "thema": ""}})
+
+
+# ---------------------------------------------------------------- Profil, Mix, Bild-Posts
+
+def test_profil_aus_beschreibung_und_cache():
+    from autopilot import profil
+    cfg = pruefen({"instagram_name": "t", "account": {"beschreibung": "Balkongarten-Tipps für Anfänger."}})
+    aufrufe = []
+
+    def chat(n, m):
+        aufrufe.append(1)
+        return json.dumps({"thema": "Gärtnern auf dem Balkon", "stil": "locker, praktisch, Du-Form",
+                           "bildstil": "bright natural photo", "bildmotiv": "tomato plants on a sunny balcony",
+                           "hashtags": ["#balkongarten", "Urban Gardening", "#balkongarten"],
+                           "suchbegriffe": ["Tomate"], "suchbegriffe_englisch": ["balcony garden"]})
+
+    verlauf = {}
+    profil.anwenden(cfg, profil.holen(cfg, verlauf, chat))
+    assert cfg["texte"]["thema"] == "Gärtnern auf dem Balkon" and cfg["bildstil"] == "bright natural photo"
+    assert cfg["hashtags_allgemein"] == ["#balkongarten", "#urbangardening"]
+    assert cfg["geschichten"]["suchbegriffe"] == ["Tomate"]
+    profil.holen(cfg, verlauf, chat)
+    assert len(aufrufe) == 1  # aus dem Verlauf, nicht neu
+
+
+def test_haupt_post_des_tages():
+    cfg = pruefen({"instagram_name": "t", "inhaltsart": "geschichten", "account": {"beschreibung": "x"},
+                   "zeitplan": {"bild": {"aktiv": True, "tage": ["mo", "mi"]},
+                                "reel": {"aktiv": True, "tage": ["di", "mi"]}}})
+    from datetime import datetime as dt
+    montag, dienstag = dt(2026, 11, 23, tzinfo=cfg["zeitzone"]), dt(2026, 11, 24, tzinfo=cfg["zeitzone"])
+    assert cli.haupt_heute(cfg, montag) == "bild" and cli.haupt_heute(cfg, dienstag) == "reel"
+
+
+def test_bildpost_ki_mit_fallback(tmp_path, monkeypatch):
+    from autopilot import ki_bilder
+    cfg = pruefen({"instagram_name": "t", "account": {"beschreibung": "x"}, "bildpost": {"stil": "ki_ohne_text"}})
+    monkeypatch.setattr(cli, "AUSGABE", str(tmp_path))
+    monkeypatch.setattr(ki_bilder, "erzeugen", lambda p: Image.new("RGB", (768, 1344), (10, 120, 60)))
+    schluessel = cli._hintergrund_fuer(cfg, {}, {"text": "Hallo", "bild": "garden"}, "1")
+    assert schluessel.startswith("datei:")
+    monkeypatch.setattr(ki_bilder, "erzeugen", lambda p: None)
+    assert cli._hintergrund_fuer(cfg, {}, {"text": "Hallo"}, "2").startswith("verlauf:")
+
+
+def test_story_nur_an_reel_tagen():
+    from datetime import datetime as dt
+    cfg = pruefen({"instagram_name": "t", "inhaltsart": "geschichten", "account": {"beschreibung": "x"},
+                   "zeitplan": {"bild": {"aktiv": True, "tage": ["mo"], "uhrzeit": "09:00"},
+                                "reel": {"aktiv": True, "tage": ["mo", "di"], "uhrzeit": "12:00"},
+                                "story": {"aktiv": True, "bei": "reel"}}})
+    montag_mittag = dt(2026, 11, 23, 13, 0, tzinfo=cfg["zeitzone"])
+    assert inhalte.faellig(cfg, {"zuletzt": {}}, montag_mittag) == ["bild", "reel", "story"]
+    montag_frueh = dt(2026, 11, 23, 10, 0, tzinfo=cfg["zeitzone"])
+    assert inhalte.faellig(cfg, {"zuletzt": {}}, montag_frueh) == ["bild"]

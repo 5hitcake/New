@@ -103,14 +103,18 @@ def faellig(cfg, verlauf, jetzt=None):
             and zuletzt.get(typ) != heute
         )
 
-    # Die Story begleitet den Haupt-Post: bei Zitaten das Bild, sonst das Reel.
-    haupt = "bild" if cfg.get("inhaltsart", "zitate") == "zitate" else "reel"
+    # Die Story begleitet den Haupt-Post des Tages: das Bild, wenn heute eins geplant ist, sonst das Reel.
+    tag = jetzt.weekday()
+    bei = plan["story"].get("bei", "beidem")
+    reihenfolge = ("bild", "reel") if bei == "beidem" else (bei,)
+    haupt = next((t for t in reihenfolge if plan[t]["aktiv"] and tag in plan[t]["tage"]),
+                 "bild" if plan["bild"]["aktiv"] else "reel")
     typen = []
     if plan["bild"]["aktiv"] and dran("bild", plan["bild"]["uhrzeit"], plan["bild"]["tage"]):
         typen.append("bild")
     if plan["reel"]["aktiv"] and dran("reel", plan["reel"]["uhrzeit"], plan["reel"]["tage"]):
         typen.append("reel")
-    if plan["story"]["aktiv"] and plan[haupt]["aktiv"] and dran("story", plan[haupt]["uhrzeit"], plan[haupt]["tage"]):
+    if plan["story"]["aktiv"] and plan[haupt]["aktiv"] and (bei == "beidem" or haupt == bei) and dran("story", plan[haupt]["uhrzeit"], plan[haupt]["tage"]):
         typen.append("story")  # zuletzt: nutzt das Bild bzw. Titelbild des Haupt-Posts
     return typen
 

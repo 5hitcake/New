@@ -10,19 +10,22 @@ import re
 from . import inhalte
 from .einstellungen import KitFehler
 
-SYSTEM = """Du schreibst Sprüche für einen deutschsprachigen Instagram-Account.
+SYSTEM = """Du schreibst die Texte für Bild-Posts eines deutschsprachigen Instagram-Accounts.
 
-Thema des Accounts: {thema}
-Stil: {stil}
+Beschreibung des Accounts: {beschreibung}
+Thema: {thema}
+Ton: {stil}
 
 Regeln:
-- Ein eigener, neu formulierter Spruch, 6 bis 22 Wörter, höchstens 150 Zeichen.
+- Ein eigener, neu formulierter kurzer Text, der zum Account passt: je nach Thema ein Spruch, ein
+  überraschender Fakt, ein Tipp oder ein Gedanke. 6 bis 22 Wörter, höchstens 150 Zeichen.
 - Kein Zitat einer realen Person, kein Autor, keine Anführungszeichen, keine Emojis, keine Hashtags im Text.
 - Muss als Bild ohne weitere Erklärung verständlich sein.
 - Nichts Beleidigendes, keine Gesundheits- oder Finanzversprechen.
 - Nicht ähnlich zu den bisherigen Sprüchen.
 
-Antworte NUR mit JSON: {{"text": "...", "kategorie": "ein Wort", "hashtags": ["#...", "#...", "#...", "#..."]}}
+Antworte NUR mit JSON: {{"text": "...", "kategorie": "ein Wort", "hashtags": ["#...", "#...", "#...", "#..."],
+ "bild": "englische Bildbeschreibung passend zum Text, 10 bis 20 Wörter, ohne Text im Bild, keine realen Personen"}}
 Die hashtags: 4 bis 6 passende deutsche Hashtags, klein geschrieben."""
 
 MERKEN = 400
@@ -40,7 +43,8 @@ def _pruefen(daten):
         if len(t) > 2 and t not in tags:
             tags.append(t)
     return {"id": inhalte.eintrag_id(text), "text": text, "autor": "",
-            "kategorie": str(daten.get("kategorie", "")).strip()[:30], "hashtags": tags[:6], "ki": True}
+            "kategorie": str(daten.get("kategorie", "")).strip()[:30], "hashtags": tags[:6], "ki": True,
+            "bild": re.sub(r"\s+", " ", str(daten.get("bild", ""))).strip()[:300]}
 
 
 def ki_spruch(cfg, verlauf, chat=None):
@@ -49,7 +53,8 @@ def ki_spruch(cfg, verlauf, chat=None):
     t = cfg["texte"]
     bisher = verlauf.get("ki_sprueche", [])
     gesehen = {inhalte.eintrag_id(s) for s in bisher}
-    nachrichten = [{"role": "system", "content": SYSTEM.format(thema=t["thema"], stil=t["stil"])},
+    nachrichten = [{"role": "system", "content": SYSTEM.format(beschreibung=cfg.get("beschreibung") or t["thema"], thema=t["thema"],
+                                                                 stil=t["stil"] or "kurz, direkt, in der Du-Form")},
                    {"role": "user", "content": "Bisherige Sprüche (nicht wiederholen):\n- "
                     + "\n- ".join(bisher[-60:]) if bisher else "Schreibe den ersten Spruch."}]
     if chat is None:
