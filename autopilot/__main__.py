@@ -183,7 +183,15 @@ def erstellen(cfg, typ, verlauf=None, eintraege=None, sprecher_fabrik=None):
 
         skript = geschichten.neue_geschichte(cfg["geschichten"], verlauf)
         fabrik = sprecher_fabrik or sprecher.Sprecher
-        stimme = fabrik(cfg["geschichten"]["sprechtempo"]) if cfg["geschichten"]["sprecher"] == "thorsten" else None
+        g = cfg["geschichten"]
+        klang = sprecher.stimmung_waehlen(g["stimmung"], cfg["texte"]["stil"] or cfg.get("beschreibung", ""))
+        if g["sprecher"] != "thorsten":
+            stimme = None
+        elif sprecher_fabrik:
+            stimme = fabrik(g["sprechtempo"])
+        else:
+            stimme = fabrik(g["sprechtempo"] * (1.08 if klang == "duester" else 1.0), klang)
+            print(f"Sprecher: Thorsten, Klang „{klang}“")
         datei = os.path.join(AUSGABE, f"reel_{stempel}.mp4")
         dauer, titel, quellen = reels.geschichten_reel(cfg, skript, datei, musik, stimme)
         return _schreiben({"typ": "reel", "datei": _rel(datei), "titelbild": _rel(titel),
