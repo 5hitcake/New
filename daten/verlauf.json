@@ -17,5 +17,34 @@
   "hintergruende": [
     "verlauf:1",
     "verlauf:1"
-  ]
+  ],
+  "profil": {
+    "thema": "Unheimliche Gruselgeschichten über verlassene Orte in Deutschland",
+    "stil": "spannend und düster, Du-Form",
+    "bildstil": "dark and moody atmosphere, abandoned places",
+    "bildmotiv": "abandoned asylums, haunted mansions, and creepy forests",
+    "hashtags": [
+      "#gruselgeschichten",
+      "#verlasseneorte",
+      "#mystery",
+      "#horror",
+      "#deutschland",
+      "#spannend",
+      "#düster",
+      "#abandonedplaces"
+    ],
+    "suchbegriffe": [
+      "verlassene Orte",
+      "Gruselgeschichten",
+      "Mystery",
+      "Horror",
+      "deutsche Mythologie"
+    ],
+    "suchbegriffe_englisch": [
+      "abandoned places",
+      "ghost stories",
+      "dark tourism"
+    ],
+    "hash": "29cb6f736f11"
+  }
 }
