@@ -11,9 +11,9 @@ instagram_name: "mindset_und.motivation"
 # Wird unten auf jedes Bild geschrieben. Leer lassen ("") = kein Name im Bild.
 name_im_bild: "@mindset_und.motivation"
 
-# Nur nötig, falls die Prüfung "Konto-ID ließ sich nicht ermitteln" meldet:
-# die lange Zahl (beginnt meist mit 1784) unter deinem Kontonamen im Meta-Dashboard.
-# Sonst leer lassen.
+# Deine Instagram-Konto-ID: die lange Zahl (beginnt meist mit 1784) unter deinem
+# Kontonamen im Meta-Dashboard bei "Zugriffstokens generieren". Nötig bei Tokens,
+# die mit EAA beginnen (Standard seit 2026). Bei älteren IGAA-Tokens leer lassen.
 instagram_konto_id: "17841474886132946"
 
 # ------------------------------------------------------------
