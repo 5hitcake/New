@@ -9,7 +9,7 @@
 instagram_name: "mindset_und.motivation"
 
 # Wird unten auf jedes Bild geschrieben. Leer lassen ("") = kein Name im Bild.
-name_im_bild: "@mindset_und.motivation"
+name_im_bild: "@grusel.test"
 
 # Deine Instagram-Konto-ID: die lange Zahl (beginnt meist mit 1784) unter deinem
 # Kontonamen im Meta-Dashboard bei "Zugriffstokens generieren". Nötig bei Tokens,
@@ -17,31 +17,51 @@ name_im_bild: "@mindset_und.motivation"
 instagram_konto_id: "17841474886132946"
 
 # ------------------------------------------------------------
-#  Was soll gepostet werden? Genau EINE Inhaltsart eintragen:
-#    zitate         = Sprüche als Bild, Story und Reel (sofort startklar)
-#    geschichten    = KI-Story-Reels mit Bildern, Sprecher und Untertiteln
-#                     (braucht ein kostenloses Cloudflare-Konto, siehe Anleitung)
+#  Dein Account in eigenen Worten (das Wichtigste!)
+#  Daraus leitet die KI Thema, Ton, Bildstil und Hashtags ab. 3 bis 5 Sätze:
+#  Worum geht es? Für wen? Welcher Ton? Was soll es NICHT geben?
+# ------------------------------------------------------------
+account:
+  beschreibung: "Unheimliche, frei erfundene Gruselgeschichten über verlassene Orte in Deutschland. Zielgruppe: Fans von Mystery und Horror. Ton: spannend und düster, in der Du-Form. Bitte nicht: kein Blut, keine Gewalt an Kindern."
+
+# ------------------------------------------------------------
+#  Welche Art von Reels? Genau EINE eintragen (Bild-Posts gibt es bei allen):
+#    zitate         = Text-Reels: dein Text animiert auf Bild oder Farbverlauf
+#    geschichten    = Story-Reels mit KI-Bildern, Sprecher und Untertiteln
 #    eigene_medien  = Reels aus deinen eigenen Fotos und Videos (Ordner "medien")
 # ------------------------------------------------------------
-inhaltsart: "zitate"
+inhaltsart: "geschichten"
 
 # ------------------------------------------------------------
-#  Sprüche (für Zitat-Posts und den Text auf Medien-Reels)
+#  Texte (für Bild-Posts, Text-Reels und den Text auf Medien-Reels)
 # ------------------------------------------------------------
 texte:
-  # Woher kommen die Sprüche?
-  #   "datei" = aus inhalte/posts.csv. Mitgeliefert sind 104 Sprüche zum Thema
-  #             Motivation und Mindset. Für ein anderes Thema dort eigene eintragen.
-  #   "ki"    = eine kostenlose KI schreibt jeden Tag einen neuen Spruch zu deinem
-  #             Thema (braucht das Cloudflare-Konto, siehe Anleitung)
-  quelle: "datei"
+  # Woher kommen die Texte für Bild-Posts und Text-Reels?
+  #   "ki"    = eine kostenlose KI schreibt bei jedem Post einen neuen Text passend
+  #             zu deiner Beschreibung (braucht das Cloudflare-Konto, siehe Anleitung)
+  #   "datei" = deine eigenen Texte aus inhalte/posts.csv
+  quelle: "ki"
 
-  # Nur bei "ki": dein Thema und der Ton der Sprüche
-  thema: "Motivation und Mindset"
-  stil: "kurz, positiv, direkt, in der Du-Form"
+  # Optional: leer lassen = aus deiner Beschreibung abgeleitet
+  thema: ""
+  stil: ""
 
-  # Nur bei "ki": "cloudflare" (kostenlos) oder "claude" (optional, kostenpflichtig)
+  # "cloudflare" (kostenlos) oder "claude" (optional, kostenpflichtig)
   text_ki: "cloudflare"
+
+# ------------------------------------------------------------
+#  Bild-Posts
+# ------------------------------------------------------------
+bildpost:
+  # Wie sehen Bild-Posts aus?
+  #   "ki_mit_text"  = KI-Bild passend zum Text, der Text steht groß darauf
+  #   "ki_ohne_text" = nur das KI-Bild, der Text steht in der Caption
+  #   "text"         = Text auf Farbverlauf (oder auf deinen Fotos im Ordner hintergruende)
+  #   "eigene_fotos" = deine Fotos aus dem Ordner medien, Text darauf
+  stil: "ki_mit_text"
+  # Optional: leer lassen = aus deiner Beschreibung abgeleitet (auf Englisch)
+  bildstil: ""
+  motiv: ""
 
 # ------------------------------------------------------------
 #  Zeitplan
@@ -50,23 +70,25 @@ zeitplan:
   # Deine Zeitzone, z.B. Europe/Berlin, Europe/Vienna, Europe/Zurich
   zeitzone: "Europe/Berlin"
 
-  # Tages-Bild im Feed (nur bei inhaltsart "zitate")
+  # Bild-Post im Feed. Bild und Reel können sich abwechseln (verschiedene Tage)
+  # oder am selben Tag beide kommen (verschiedene Uhrzeiten).
   bild:
     aktiv: true
     tage: [mo, di, mi, do, fr, sa, so]
     uhrzeit: "18:00"
 
-  # Reel. Bei "geschichten" und "eigene_medien" ist das der Haupt-Post,
-  # dann z.B. tage: [mo, di, mi, do, fr, sa, so]
+  # Reel
   reel:
     aktiv: true
     tage: [so]
     uhrzeit: "17:00"
 
   # Story: postet den Haupt-Post des Tages zusätzlich als Story
-  # (bei "zitate" das Bild, sonst das Titelbild des Reels)
+  # (das Bild, wenn heute eins kommt, sonst das Titelbild des Reels)
+  #   bei: "beidem" = zu jedem Post, "bild" = nur an Bild-Tagen, "reel" = nur an Reel-Tagen
   story:
     aktiv: true
+    bei: "beidem"
 
 # Reihenfolge der Inhalte aus inhalte/posts.csv:
 #   zufall          = zufällig, aber keine Wiederholung bis alle dran waren
@@ -105,19 +127,11 @@ caption:
   anzahl_hashtags: 7
 
 hashtags:
-  # Aus dieser Liste werden immer ein paar genommen
-  allgemein: ["#mindset", "#motivation", "#zitate", "#zitatedestages", "#lebensweisheiten", "#persönlichkeitsentwicklung", "#mentalstärke"]
-  # Passend zur Spalte "kategorie" in posts.csv (Name muss genau gleich sein)
-  nach_kategorie:
-    Disziplin: ["#disziplin", "#selbstdisziplin", "#dranbleiben", "#konsequenz"]
-    Erfolg: ["#erfolg", "#erfolgreich", "#zielerreichen", "#businessmindset"]
-    Resilienz: ["#resilienz", "#innerestärke", "#niemalsaufgeben", "#stärkerwerden"]
-    Fokus: ["#fokus", "#konzentration", "#deepwork", "#produktivität"]
-    Wachstum: ["#weiterentwicklung", "#growthmindset", "#selfimprovement"]
-    Mut: ["#mut", "#komfortzoneverlassen", "#traudich", "#neuanfang"]
-    Gewohnheiten: ["#gewohnheiten", "#habits", "#routine", "#morgenroutine"]
-    Selbstliebe: ["#selbstliebe", "#selfcare", "#selbstakzeptanz", "#selbstwert"]
-    Mindset: ["#positivesdenken", "#gedankenkraft", "#mentaltraining"]
+  # Aus dieser Liste werden immer ein paar genommen. Leer lassen = aus deiner Beschreibung abgeleitet.
+  allgemein: []
+  # Optional, nur für eigene Texte in posts.csv: Hashtags je Kategorie (Spalte "kategorie"),
+  # z.B.  Training: ["#training", "#workout"]
+  nach_kategorie: {}
 
 # ------------------------------------------------------------
 #  Reel
@@ -125,39 +139,41 @@ hashtags:
 reel:
   # Lautstärke der Musik aus dem Ordner "musik" (0.0 bis 1.0)
   musik_lautstaerke: 0.3
+  # Text-Reels: so viele Sekunden mindestens (0 = automatisch nach Textlänge, 6 bis 14 s)
+  mindestdauer: 0
 
 # ------------------------------------------------------------
 #  Nur für inhaltsart "geschichten"
 # ------------------------------------------------------------
 geschichten:
-  # Worum geht es auf deinem Account? Ein Satz, so konkret wie möglich.
-  # Beispiele zum Abschauen:
-  #   "Wahre Gruselgeschichten und rätselhafte Kriminalfälle"
-  #   "Vergessene Ereignisse der Weltgeschichte"
-  #   "Erstaunliche Tiere und Naturphänomene"
-  thema: "Erstaunliche wahre Geschichten aus Geschichte, Natur und Wissenschaft"
+  # Optional: Thema in einem Satz. Leer lassen = aus deiner Beschreibung abgeleitet.
+  #   z.B. "Wahre Gruselgeschichten und rätselhafte Kriminalfälle"
+  thema: ""
 
   # Woher kommen die Geschichten?
   #   "wikipedia"    = wahre Geschichten, Fakten aus Wikipedia, mit Quellenangabe
   #   "fiktion"      = die KI erfindet Geschichten zum Thema (z.B. Grusel, Märchen).
   #                    In der Caption steht automatisch "Fiktive Geschichte".
   #   "eigene_texte" = aus deinen eigenen Texten in inhalte/geschichten.txt
-  quelle: "wikipedia"
+  quelle: "fiktion"
 
   # Bei "wikipedia": damit sucht der Autopilot passende Artikel (deutsch und englisch).
   # Bei "fiktion": Anregungen, aus denen die KI jeweils eine Geschichte erfindet.
-  # Je mehr Begriffe, desto mehr Abwechslung.
-  suchbegriffe: ["Naturphänomen", "Expedition", "Erfindung", "historisches Rätsel", "Entdeckung"]
-  suchbegriffe_englisch: ["natural phenomenon", "historical mystery", "famous expedition"]
+  # Je mehr Begriffe, desto mehr Abwechslung. Leer lassen = aus deiner Beschreibung abgeleitet.
+  suchbegriffe: []
+  suchbegriffe_englisch: []
 
   # Nur bei "wikipedia", optional: Artikel, die zuerst drankommen (genauer Titel aus Wikipedia)
-  startartikel: ["Mary Celeste", "Bärtierchen", "Tunguska-Ereignis"]
+  startartikel: []
 
-  # Bildstil der KI-Bilder (auf Englisch)
-  bildstil: "cinematic realistic painting, dramatic lighting, rich colors"
+  # Bildstil der KI-Bilder (auf Englisch). Leer lassen = aus deiner Beschreibung abgeleitet.
+  bildstil: ""
 
   # Farbe für hervorgehobene Wörter im Untertitel
   akzentfarbe: "#F5B700"
+
+  # Anzahl Szenen pro Geschichte: 4 = ca. 30 s, 6 = ca. 45 s, 9 = ca. 65 s
+  szenen: 4
 
   # Sprecher: "thorsten" (deutsche Männerstimme, kostenlos) oder "aus" (nur Musik)
   sprecher: "thorsten"
@@ -168,8 +184,9 @@ geschichten:
   # braucht das Secret ANTHROPIC_API_KEY)
   text_ki: "cloudflare"
 
-  # Feste Hashtags für jedes Reel (dazu kommen 2-3 passende zur Geschichte)
-  hashtags: ["#wahregeschichte", "#wissen", "#unglaublich", "#fakten"]
+  # Feste Hashtags für jedes Reel (dazu kommen 2-3 passende zur Geschichte).
+  # Leer lassen = aus deiner Beschreibung abgeleitet.
+  hashtags: []
 
 # ------------------------------------------------------------
 #  Nur für inhaltsart "eigene_medien"
