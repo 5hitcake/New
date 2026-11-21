@@ -1,0 +1,16 @@
+# ============================================================
+#  Eigene Geschichten (nur für geschichten → quelle: "eigene_texte")
+#
+#  So geht's:
+#  - Erste Zeile = Titel, darunter dein Text (Stichpunkte reichen).
+#  - Zwischen zwei Geschichten eine Zeile nur mit drei Strichen: ---
+#  - Zeilen mit # am Anfang sind Erklärungen und werden ignoriert.
+#  - Jede Geschichte wird einmal gepostet. Neue einfach unten anhängen.
+#
+#  Beispiel (ohne # davor würde es gepostet):
+#  Der Leuchtturm von Eilean Mor
+#  Im Dezember 1900 verschwanden drei Leuchtturmwärter spurlos ...
+#  ---
+#  Nächster Titel
+#  Nächster Text ...
+# ============================================================

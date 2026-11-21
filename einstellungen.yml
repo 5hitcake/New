@@ -11,6 +11,11 @@ instagram_name: "mindset_und.motivation"
 # Wird unten auf jedes Bild geschrieben. Leer lassen ("") = kein Name im Bild.
 name_im_bild: "@mindset_und.motivation"
 
+# Nur nötig, falls die Prüfung "Konto-ID ließ sich nicht ermitteln" meldet:
+# die lange Zahl (beginnt meist mit 1784) unter deinem Kontonamen im Meta-Dashboard.
+# Sonst leer lassen.
+instagram_konto_id: ""
+
 # ------------------------------------------------------------
 #  Was soll gepostet werden? Genau EINE Inhaltsart eintragen:
 #    zitate         = Sprüche als Bild, Story und Reel (sofort startklar)
@@ -114,12 +119,20 @@ geschichten:
   #   "Erstaunliche Tiere und Naturphänomene"
   thema: "Erstaunliche wahre Geschichten aus Geschichte, Natur und Wissenschaft"
 
-  # Damit sucht der Autopilot passende Wikipedia-Artikel (deutsch und englisch).
+  # Woher kommen die Geschichten?
+  #   "wikipedia"    = wahre Geschichten, Fakten aus Wikipedia, mit Quellenangabe
+  #   "fiktion"      = die KI erfindet Geschichten zum Thema (z.B. Grusel, Märchen).
+  #                    In der Caption steht automatisch "Fiktive Geschichte".
+  #   "eigene_texte" = aus deinen eigenen Texten in inhalte/geschichten.txt
+  quelle: "wikipedia"
+
+  # Bei "wikipedia": damit sucht der Autopilot passende Artikel (deutsch und englisch).
+  # Bei "fiktion": Anregungen, aus denen die KI jeweils eine Geschichte erfindet.
   # Je mehr Begriffe, desto mehr Abwechslung.
   suchbegriffe: ["Naturphänomen", "Expedition", "Erfindung", "historisches Rätsel", "Entdeckung"]
   suchbegriffe_englisch: ["natural phenomenon", "historical mystery", "famous expedition"]
 
-  # Optional: Artikel, die zuerst drankommen (genauer Titel aus Wikipedia)
+  # Nur bei "wikipedia", optional: Artikel, die zuerst drankommen (genauer Titel aus Wikipedia)
   startartikel: ["Mary Celeste", "Bärtierchen", "Tunguska-Ereignis"]
 
   # Bildstil der KI-Bilder (auf Englisch)

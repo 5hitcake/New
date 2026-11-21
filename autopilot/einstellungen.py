@@ -19,6 +19,8 @@ STIMMEN = os.path.join(ROOT, ".stimmen")  # Download-Ordner für die Sprecher-St
 WOCHENTAGE = ["mo", "di", "mi", "do", "fr", "sa", "so"]
 TYPEN = ("bild", "reel", "story")
 INHALTSARTEN = ("zitate", "geschichten", "eigene_medien")
+QUELLEN = ("wikipedia", "fiktion", "eigene_texte")
+EIGENE_TEXTE = os.path.join(ROOT, "inhalte", "geschichten.txt")
 
 
 class KitFehler(Exception):
@@ -70,6 +72,10 @@ def pruefen(roh):
     name = str(roh.get("instagram_name", "")).strip().lstrip("@")
     if not name or name == "dein_account_name":
         raise KitFehler("Trage in einstellungen.yml bei instagram_name deinen Instagram-Namen ein (ohne @).")
+
+    konto_id = str(roh.get("instagram_konto_id") or "").strip()
+    if konto_id and not konto_id.isdigit():
+        raise KitFehler("instagram_konto_id darf nur aus Ziffern bestehen (oder leer bleiben).")
 
     zp = roh.get("zeitplan") or {}
     try:
@@ -123,7 +129,10 @@ def pruefen(roh):
     text_ki = str(g.get("text_ki", "cloudflare")).strip().lower()
     if text_ki not in ("cloudflare", "claude"):
         raise KitFehler("geschichten → text_ki muss \"cloudflare\" oder \"claude\" sein.")
-    if art == "geschichten" and not (g.get("suchbegriffe") or g.get("suchbegriffe_englisch") or g.get("startartikel")):
+    quelle = str(g.get("quelle", "wikipedia")).strip().lower()
+    if quelle not in QUELLEN:
+        raise KitFehler(f"geschichten → quelle '{quelle}' gibt es nicht. Erlaubt: {', '.join(QUELLEN)}.")
+    if art == "geschichten" and quelle == "wikipedia" and not (g.get("suchbegriffe") or g.get("suchbegriffe_englisch") or g.get("startartikel")):
         raise KitFehler("geschichten: Trage mindestens einen Suchbegriff oder Startartikel ein.")
     tempo = float(g.get("sprechtempo", 1.0))
     if not 0.6 <= tempo <= 1.5:
@@ -137,6 +146,7 @@ def pruefen(roh):
     return {
         "inhaltsart": art,
         "geschichten": {
+            "quelle": quelle,
             "thema": str(g.get("thema", "")).strip() or "Wahre, spannende Geschichten",
             "suchbegriffe": [str(x) for x in g.get("suchbegriffe") or []],
             "suchbegriffe_englisch": [str(x) for x in g.get("suchbegriffe_englisch") or []],
@@ -154,6 +164,7 @@ def pruefen(roh):
             "text_einblenden": bool(m.get("text_einblenden", True)),
         },
         "instagram_name": name,
+        "instagram_konto_id": konto_id or None,
         "name_im_bild": str(roh.get("name_im_bild", f"@{name}") or ""),
         "zeitzone": zone,
         "plan": plan,

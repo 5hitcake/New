@@ -30,7 +30,7 @@ jobs:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Kit auspacken (nur beim ersten Lauf)
         run: |
@@ -44,7 +44,7 @@ jobs:
             git add -A && git commit -qm "Insta-Autopilot ausgepackt" && git push -q
           fi
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
@@ -55,7 +55,7 @@ jobs:
 
       - name: Vorschau zum Herunterladen
         if: github.event.inputs.aktion == 'vorschau'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: vorschau
           path: ausgabe/*.*

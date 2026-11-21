@@ -1,9 +1,13 @@
-"""Schreibt Reel-Skripte aus Wikipedia-Artikeln.
+"""Schreibt Reel-Skripte. Drei Quellen (einstellungen.yml → geschichten → quelle):
 
-Fakten kommen nur aus Wikipedia (deutsch oder englisch). Eine Text-KI macht daraus ein Skript:
-Hook + 6 Szenen + Frage an die Zuschauer, jede Szene mit englischer Bildbeschreibung.
-Kostenlos über Cloudflare Workers AI; optional über die Claude-API (kostenpflichtig).
+- wikipedia:    wahre Geschichten, Fakten nur aus Wikipedia (deutsch oder englisch)
+- fiktion:      die KI erfindet die Geschichte frei zum Thema (wird als fiktiv gekennzeichnet)
+- eigene_texte: aus deinen eigenen Texten in inhalte/geschichten.txt
+
+Eine Text-KI macht daraus ein Skript: Hook + 6 Szenen + Frage an die Zuschauer, jede Szene mit
+englischer Bildbeschreibung. Kostenlos über Cloudflare Workers AI; optional über die Claude-API.
 """
+import hashlib
 import json
 import os
 import random
@@ -12,7 +16,7 @@ import time
 
 import requests
 
-from .einstellungen import KitFehler
+from .einstellungen import EIGENE_TEXTE, KitFehler
 
 WIKI_API = "https://{lang}.wikipedia.org/w/api.php"
 CF_TEXT_MODELLE = [
@@ -93,26 +97,47 @@ def kandidaten(g, benutzt, http=HTTP, zufall=random):
 
 # ---------------------------------------------------------------- Text-KI
 
-SYSTEM = """Du schreibst Skripte für ca. 45 Sekunden lange Instagram-Reels auf Deutsch. Ein Sprecher
+KOPF = """Du schreibst Skripte für ca. 45 Sekunden lange Instagram-Reels auf Deutsch. Ein Sprecher
 liest den Text vor, der Text steht auch im Bild. Zu jeder Szene wird ein KI-Bild erzeugt.
 
 Thema des Accounts: {thema}
+"""
 
+QUELLEN_REGELN = {
+    "wikipedia": """
 WICHTIGSTE REGEL: Verwende AUSSCHLIESSLICH Fakten aus dem Wikipedia-Artikel. Erfinde keine Namen,
 Zahlen, Daten, Zitate oder Details. Ist etwas ungeklärt oder umstritten, sag das klar.
 
 Lehne den Artikel ab ("geeignet": false), wenn er nicht zum Thema passt, zu wenig Stoff für 6 Szenen
 hat, Kinder Opfer von Gewalt sind, sexuelle Gewalt im Mittelpunkt steht, es um lebende Privatpersonen
 nach 2010 geht oder er Hass, Terror oder menschenverachtende Verschwörungsmythen fördern könnte.
+""",
+    "eigene_texte": """
+WICHTIGSTE REGEL: Verwende AUSSCHLIESSLICH die Inhalte aus dem Text des Nutzers. Erfinde keine Namen,
+Zahlen, Daten, Zitate oder Details dazu. Ist der Text kurz, bleib nah am Text.
 
+Lehne den Text nur ab ("geeignet": false), wenn er Hass, Gewaltverherrlichung oder sexuelle Inhalte
+enthält oder echte Privatpersonen bloßstellt.
+""",
+    "fiktion": """
+Erfinde eine NEUE, frei erfundene Geschichte passend zum Thema. Sie darf nicht wie ein echtes Ereignis
+wirken: keine echten Personen, keine echten Firmen, keine echten Verbrechen, keine konkreten echten
+Daten. Erfundene Orte und Namen sind erlaubt. Gruselig oder spannend ja, aber ohne Splatter, ohne
+Gewalt an Kindern, ohne sexuelle Inhalte. Gib der Geschichte zusätzlich einen kurzen "titel".
+""",
+}
+
+FORMAT = """
 Antworte NUR mit JSON in genau diesem Format:
-{{"geeignet": true, "grund": "kurz",
- "hook": {{"text": "...", "bild": "..."}},
- "szenen": [{{"text": "...", "bild": "..."}}, ... genau 6 Szenen ...],
+{"geeignet": true, "grund": "kurz", "titel": "...",
+ "hook": {"text": "...", "bild": "..."},
+ "szenen": [{"text": "...", "bild": "..."}, ... genau 6 Szenen ...],
  "frage": "...",
- "hashtags": ["#...", "#..."]}}
+ "hashtags": ["#...", "#..."]}
 
-Regeln:
+"""
+
+REGELN = """Regeln:
 - hook.text: 1 packender Satz, höchstens 14 Wörter. Beginne mit einem konkreten, überraschenden
   Detail, keine Zusammenfassung.
 - 6 Szenen mit je 9 bis 16 Wörtern. Bogen: Ort und Zeit, Ereignis, überraschendes Detail,
@@ -124,6 +149,10 @@ Regeln:
 - "bild": Bildbeschreibung AUF ENGLISCH, 10 bis 25 Wörter: Ort, Stimmung, Licht, Gegenstände.
   Keine erkennbaren realen Personen (lieber Silhouetten), kein Text im Bild, kein Blut.
 - "hashtags": 2 bis 3 passende deutsche Hashtags."""
+
+
+def system_prompt(thema, quelle="wikipedia"):
+    return KOPF.format(thema=thema) + QUELLEN_REGELN[quelle] + FORMAT + REGELN
 
 
 def _json_aus(text):
@@ -215,13 +244,19 @@ def _claude_chat(nachrichten, http=HTTP):
     return "".join(b.get("text", "") for b in resp.json().get("content", []))
 
 
-def skript_schreiben(g, titel, text, chat=None):
-    """Gibt (skript, None) oder (None, Grund) zurück."""
+def skript_schreiben(g, titel, text, chat=None, quelle="wikipedia"):
+    """Gibt (skript, None) oder (None, Grund) zurück. Bei quelle="fiktion" ist text die Anregung."""
     englisch = bool(re.search(r"\b(the|and|was|were)\b", text[:2000])) and not re.search(
         r"\b(und|der|die|das)\b", text[:2000])
-    hinweis = " Der Artikel ist englisch: schreibe trotzdem auf DEUTSCH und übersetze genau." if englisch else ""
-    nachrichten = [{"role": "system", "content": SYSTEM.format(thema=g["thema"])},
-                   {"role": "user", "content": f'Wikipedia-Artikel "{titel}".{hinweis}\n\n{text}'}]
+    hinweis = " Der Text ist englisch: schreibe trotzdem auf DEUTSCH und übersetze genau." if englisch else ""
+    if quelle == "fiktion":
+        nutzer = text
+    elif quelle == "eigene_texte":
+        nutzer = f'Text des Nutzers "{titel}".{hinweis}\n\n{text}'
+    else:
+        nutzer = f'Wikipedia-Artikel "{titel}".{hinweis}\n\n{text}'
+    nachrichten = [{"role": "system", "content": system_prompt(g["thema"], quelle)},
+                   {"role": "user", "content": nutzer}]
     if chat is None:
         if g["text_ki"] == "claude":
             modelle, chat = ["claude"], lambda n, _m: _claude_chat(n)
@@ -254,6 +289,72 @@ def skript_schreiben(g, titel, text, chat=None):
 
 
 def neue_geschichte(g, verlauf, http=HTTP, chat=None, zufall=random):
+    """Wählt je nach Einstellung die Quelle."""
+    if g.get("quelle") == "fiktion":
+        return _fiktion(g, verlauf, chat, zufall)
+    if g.get("quelle") == "eigene_texte":
+        return _eigener_text(g, verlauf, chat)
+    return _wikipedia(g, verlauf, http, chat, zufall)
+
+
+def _fiktion(g, verlauf, chat=None, zufall=random):
+    bisher = [m.removeprefix("fiktion:") for m in verlauf.get("wiki_benutzt", []) if m.startswith("fiktion:")]
+    motiv = zufall.choice(g["suchbegriffe"] + g["suchbegriffe_englisch"] or [g["thema"]])
+    auftrag = f"Schreibe eine neue, frei erfundene Geschichte. Anregung: {motiv}."
+    if bisher:
+        auftrag += " Diese Geschichten gab es schon, schreibe etwas deutlich anderes: " + "; ".join(bisher[-40:])
+    skript, grund = skript_schreiben(g, "", auftrag, chat, quelle="fiktion")
+    if not skript:
+        raise KitFehler(f"Die KI konnte keine Geschichte schreiben ({grund}). Beim nächsten Lauf neuer Versuch.")
+    titel = str(skript.get("titel") or skript["hook"]["text"]).replace("*", "").strip()[:80]
+    skript.update(quelle_art="fiktion", quelle="", titel=titel, merken=[f"fiktion:{titel}"])
+    print(f"+ {titel}: fiktive Geschichte geschrieben")
+    return skript
+
+
+def eigene_texte_laden(pfad=EIGENE_TEXTE):
+    """Liest inhalte/geschichten.txt: Texte getrennt durch eine Zeile mit ---, erste Zeile = Titel.
+    Zeilen, die mit # beginnen, sind Kommentare. Gibt Liste von (id, titel, text) zurück."""
+    if not os.path.exists(pfad):
+        return []
+    with open(pfad, encoding="utf-8-sig") as f:
+        zeilen = [z.rstrip() for z in f if not z.lstrip().startswith("#")]
+    texte, block = [], []
+    for z in zeilen + ["---"]:
+        if z.strip() == "---":
+            inhalt = "\n".join(block).strip()
+            if inhalt:
+                titel, _, rest = inhalt.partition("\n")
+                texte.append(("text:" + hashlib.sha1(inhalt.encode()).hexdigest()[:12], titel.strip(),
+                              (rest.strip() or titel.strip())))
+            block = []
+        else:
+            block.append(z)
+    return texte
+
+
+def _eigener_text(g, verlauf, chat=None):
+    texte = eigene_texte_laden()
+    if not texte:
+        raise KitFehler("quelle ist \"eigene_texte\", aber in inhalte/geschichten.txt steht noch kein Text. "
+                        "Schreib dort deine Geschichten hinein (getrennt durch eine Zeile mit ---).")
+    benutzt = set(verlauf.get("wiki_benutzt", [])) | set(verlauf.get("wiki_abgelehnt", []))
+    offen = [t for t in texte if t[0] not in benutzt]
+    if not offen:
+        raise KitFehler("Alle Texte aus inhalte/geschichten.txt wurden schon gepostet. Füge neue hinzu.")
+    for tid, titel, text in offen[:MAX_ARTIKEL_PRO_LAUF]:
+        skript, grund = skript_schreiben(g, titel, text, chat, quelle="eigene_texte")
+        if skript:
+            skript.update(quelle_art="eigene_texte", quelle="", titel=titel, merken=[tid])
+            print(f"+ {titel}: Skript geschrieben")
+            return skript
+        print(f"- {titel}: {grund}")
+        if grund.startswith("passt nicht"):
+            verlauf["wiki_abgelehnt"] = (verlauf.get("wiki_abgelehnt", []) + [tid])[-500:]
+    raise KitFehler("Aus deinen Texten ließ sich gerade kein Skript schreiben. Beim nächsten Lauf neuer Versuch.")
+
+
+def _wikipedia(g, verlauf, http=HTTP, chat=None, zufall=random):
     """Sucht einen unbenutzten Artikel und schreibt das Skript. Markiert NICHTS als benutzt
     (das passiert erst nach dem Posten); gibt die zu merkenden Artikel-Schlüssel mit."""
     benutzt = set(verlauf.get("wiki_benutzt", [])) | set(verlauf.get("wiki_abgelehnt", []))
@@ -277,7 +378,7 @@ def neue_geschichte(g, verlauf, http=HTTP, chat=None, zufall=random):
             benutzt.add(echt)  # in diesem Lauf nicht noch einmal
             verlauf["wiki_abgelehnt"] = (verlauf.get("wiki_abgelehnt", []) + [echt])[-500:]
             continue
-        skript.update(quelle=url, titel=titel, merken=sorted({schluessel, echt} | andere))
+        skript.update(quelle_art="wikipedia", quelle=url, titel=titel, merken=sorted({schluessel, echt} | andere))
         print(f"+ {titel}: Skript geschrieben")
         return skript
     raise KitFehler("Keine passende Geschichte gefunden. Ergänze in einstellungen.yml weitere "

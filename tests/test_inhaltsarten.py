@@ -300,3 +300,82 @@ def test_story_ohne_reel_erklaert_sich(ordner):
 
 def test_video_konstanten():
     assert (video.B, video.H) == (1080, 1920)
+
+
+# ---------------------------------------------------------------- Token-Arten und Quellen
+
+def test_token_art_erkennen():
+    from autopilot import instagram
+    assert instagram.ist_systemnutzer_token("EAGpAbc")
+    assert not instagram.ist_systemnutzer_token("IGAAxyz")
+    assert instagram._api("EAGp") == instagram.FB_API and instagram._api("IGAA") == instagram.IG_API
+
+
+def test_systemnutzer_konto_id_aus_debug_token(monkeypatch):
+    from autopilot import instagram
+    aufrufe = []
+
+    def falsch_get(pfad, token, **params):
+        aufrufe.append(pfad)
+        if pfad == "debug_token":
+            return {"data": {"granular_scopes": [
+                {"scope": "instagram_basic", "target_ids": ["17841474886132946"]},
+                {"scope": "instagram_content_publish", "target_ids": ["17841474886132946"]},
+                {"scope": "ads_read"}]}}
+        return {"username": "mindset_und.motivation"}
+
+    monkeypatch.setattr(instagram, "_get", falsch_get)
+    assert instagram.konto("EAGtest") == ("17841474886132946", "mindset_und.motivation")
+    assert instagram.konto("EAGtest", "123") == ("123", "mindset_und.motivation")
+    assert aufrufe[-1] == "123"
+
+
+def test_systemnutzer_ohne_id_erklaert(monkeypatch):
+    from autopilot import instagram
+    monkeypatch.setattr(instagram, "_get", lambda pfad, token, **p: {"data": {}})
+    with pytest.raises(KitFehler, match="instagram_konto_id"):
+        instagram.konto("EAGtest")
+
+
+def test_systemnutzer_token_wird_nicht_erneuert():
+    from autopilot import instagram
+    assert instagram.token_erneuern("EAGtest") == ("EAGtest", None)
+
+
+def test_caption_kennzeichnet_fiktion():
+    cfg = {"geschichten": {"hashtags": ["#grusel"]}}
+    skript = {"hook": {"text": "Die Tür war *offen*."}, "frage": "Würdest du reingehen?",
+              "hashtags": [], "titel": "Die Tür", "quelle_art": "fiktion"}
+    text = reels.geschichten_caption(cfg, skript)
+    assert "Fiktive Geschichte" in text and "Wikipedia" not in text
+
+
+def test_eigene_texte_laden(tmp_path):
+    from autopilot import geschichten
+    datei = tmp_path / "g.txt"
+    datei.write_text("# Kommentar\nTitel A\nText A eins.\n---\n\nTitel B\nText B.\n---\n", encoding="utf-8")
+    texte = geschichten.eigene_texte_laden(str(datei))
+    assert [t[1] for t in texte] == ["Titel A", "Titel B"]
+    assert texte[0][2] == "Text A eins." and texte[0][0].startswith("text:")
+
+
+def test_fiktion_merkt_titel():
+    from autopilot import geschichten
+    skript = {"geeignet": True, "titel": "Das Haus am See",
+              "hook": {"text": "Niemand wohnte dort seit 40 Jahren.", "bild": "old house by a lake at night"},
+              "szenen": [{"text": "Ein Licht brannte jede Nacht im obersten Fenster des alten Hauses.",
+                          "bild": "lit window in dark house, fog"}] * 6,
+              "frage": "Würdest du hineingehen?", "hashtags": ["#grusel"]}
+    gesehen = {}
+
+    def chat(nachrichten, modell):
+        gesehen["system"] = nachrichten[0]["content"]
+        gesehen["nutzer"] = nachrichten[1]["content"]
+        return json.dumps(skript)
+
+    g = {"thema": "Gruselgeschichten", "quelle": "fiktion", "suchbegriffe": ["verlassenes Haus"],
+         "suchbegriffe_englisch": [], "text_ki": "cloudflare"}
+    verlauf = {"wiki_benutzt": ["fiktion:Der Brunnen"]}
+    ergebnis = geschichten.neue_geschichte(g, verlauf, chat=chat)
+    assert ergebnis["merken"] == ["fiktion:Das Haus am See"] and ergebnis["quelle_art"] == "fiktion"
+    assert "frei erfundene" in gesehen["system"] and "Der Brunnen" in gesehen["nutzer"]

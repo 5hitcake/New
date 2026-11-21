@@ -153,7 +153,7 @@ def posten(cfg, typ):
     if not post:
         raise KitFehler(f"Für {typ} wurde nichts erzeugt.")
     token = _token()
-    uid = instagram.konto_pruefen(token, cfg["instagram_name"])
+    uid = instagram.konto_pruefen(token, cfg["instagram_name"], cfg["instagram_konto_id"])
     media_id = instagram.veroeffentlichen(token, uid, post)
 
     verlauf = inhalte.verlauf_laden()
@@ -183,6 +183,10 @@ def posten(cfg, typ):
 
 def token_erneuern(cfg):
     token = _token()
+    if instagram.ist_systemnutzer_token(token):
+        print("Der Token ist ein Systemnutzer-Token und läuft nie ab. Nichts zu tun.")
+        _zusammenfassung("🔑 Systemnutzer-Token: läuft nie ab, keine Verlängerung nötig.")
+        return
     neu, tage = instagram.token_erneuern(token)
     _maskieren(neu)
     if neu != token:
@@ -244,6 +248,15 @@ def pruefen():
         fotos = design.eigene_hintergruende()
         ok(f"Hintergründe: {len(fotos)} eigene Fotos" if fotos else "Hintergründe: Farbverläufe (keine eigenen Fotos)")
     if art == "geschichten":
+        from . import geschichten
+        quelle = cfg["geschichten"]["quelle"]
+        if quelle == "eigene_texte":
+            n = len(geschichten.eigene_texte_laden())
+            (ok if n else schlecht)(f"inhalte/geschichten.txt: {n} eigene Texte" if n else
+                                    "inhalte/geschichten.txt enthält noch keinen Text")
+        else:
+            ok({"wikipedia": "Quelle: Wikipedia (wahre Geschichten mit Quellenangabe)",
+                "fiktion": "Quelle: Fiktion (frei erfundene Geschichten, in der Caption gekennzeichnet)"}[quelle])
         erfolg, text = _cloudflare_ok()
         (ok if erfolg else schlecht)(text)
         if cfg["geschichten"]["text_ki"] == "claude":
@@ -278,7 +291,7 @@ def pruefen():
     else:
         _maskieren(token)
         try:
-            _, name = instagram.konto(token)
+            _, name = instagram.konto(token, cfg["instagram_konto_id"] if cfg else None)
             if cfg and name.lower() != cfg["instagram_name"].lower():
                 schlecht(f"Token gehört zu @{name}, in einstellungen.yml steht @{cfg['instagram_name']}")
             else:
@@ -286,10 +299,12 @@ def pruefen():
         except KitFehler as exc:
             schlecht(str(exc))
 
-    if os.environ.get("GH_TOKEN"):
+    if token and instagram.ist_systemnutzer_token(token):
+        ok("Systemnutzer-Token: läuft nie ab, SECRETS_WRITE_TOKEN wird nicht gebraucht")
+    elif os.environ.get("GH_TOKEN"):
         ok("SECRETS_WRITE_TOKEN hinterlegt (Token-Verlängerung läuft automatisch)")
-    else:
-        schlecht("Secret SECRETS_WRITE_TOKEN fehlt: der Instagram-Token läuft sonst nach 60 Tagen ab")
+    elif token:
+        schlecht("Secret SECRETS_WRITE_TOKEN fehlt: dein Instagram-Token (IGAA…) läuft sonst nach 60 Tagen ab")
 
     if cfg:
         tage_namen = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
@@ -380,7 +395,8 @@ def lauf(aktion, bereitstellen=None):
     nur_story = aktion == "jetzt-story-posten"
     if aktion == "automatisch":
         typen = inhalte.faellig(cfg, verlauf, _jetzt(cfg))
-        token = inhalte.token_faellig(verlauf, _jetzt(cfg).date())
+        token = (not instagram.ist_systemnutzer_token(os.environ.get("IG_ACCESS_TOKEN", "").strip())
+                 and inhalte.token_faellig(verlauf, _jetzt(cfg).date()))
         inhalte.verlauf_speichern(verlauf)
     elif aktion == "jetzt-posten":
         typen, token = [haupt] + (["story"] if cfg["plan"]["story"]["aktiv"] else []), False

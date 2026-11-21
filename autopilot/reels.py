@@ -99,11 +99,19 @@ def geschichten_reel(cfg, skript, ziel, musik=None, sprecher=None, bild_quelle=N
         shutil.rmtree(arbeit, ignore_errors=True)
 
 
+HERKUNFT = {
+    "wikipedia": "Quelle: Wikipedia ({titel}). Bilder KI-generiert.",
+    "fiktion": "Fiktive Geschichte, frei erfunden. Bilder KI-generiert.",
+    "eigene_texte": "Bilder KI-generiert.",
+}
+
+
 def geschichten_caption(cfg, skript, zufall=random):
     hook = skript["hook"]["text"].replace("*", "")
     tags = list(dict.fromkeys(skript.get("hashtags", []) + cfg["geschichten"]["hashtags"]))[:8]
     teile = [hook, "", skript["frage"].replace("*", "") + " 👇", "",
-             f"Quelle: Wikipedia ({skript.get('titel', '')}). Bilder KI-generiert.", "", " ".join(tags)]
+             HERKUNFT.get(skript.get("quelle_art", "wikipedia"), "").format(titel=skript.get("titel", "")),
+             "", " ".join(tags)]
     return "\n".join(teile).strip()[:2200]
 
 

@@ -1,5 +1,11 @@
-"""Veröffentlichen über die offizielle "Instagram API with Instagram Login" (graph.instagram.com).
-Kein Login-Bot, keine Facebook-Seite nötig."""
+"""Veröffentlichen über die offizielle Instagram-API von Meta. Kein Login-Bot, keine Facebook-Seite nötig.
+
+Zwei Token-Arten werden erkannt:
+- "EAA…" Systemnutzer-Token aus der Meta-Einrichtung "API setup with Unified login" (seit 2026 Standard
+  für neue Apps). Läuft nie ab, spricht graph.facebook.com.
+- "IGAA…" Instagram-Token aus der älteren "API-Einrichtung mit Instagram-Login". Läuft nach 60 Tagen ab
+  und wird automatisch verlängert, spricht graph.instagram.com.
+"""
 import os
 import subprocess
 import time
@@ -10,8 +16,9 @@ from urllib3.util.retry import Retry
 
 from .einstellungen import KitFehler
 
-API_VERSION = "v21.0"
-API = f"https://graph.instagram.com/{API_VERSION}"
+API_VERSION = "v25.0"  # gültig bis mindestens Juli 2028
+IG_API = f"https://graph.instagram.com/{API_VERSION}"
+FB_API = f"https://graph.facebook.com/{API_VERSION}"
 REFRESH_URL = "https://graph.instagram.com/refresh_access_token"
 WARTEN_SEKUNDEN = 10
 WARTEN_VERSUCHE = 30
@@ -30,9 +37,9 @@ SITZUNG = _sitzung()
 # Häufige Meta-Fehler in verständlicher Form
 ERKLAERUNGEN = {
     190: "Der Instagram-Token ist ungültig oder abgelaufen. Erzeuge im Meta-Dashboard einen neuen "
-         "(Anleitung Schritt 4) und ersetze das GitHub-Secret IG_ACCESS_TOKEN.",
+         "(Anleitung: Meta-App, Token generieren) und ersetze das GitHub-Secret IG_ACCESS_TOKEN.",
     10: "Der App fehlt die Berechtigung zum Posten. Beim Token-Erzeugen alle Häkchen bestätigen "
-        "(instagram_business_content_publish).",
+        "(instagram_content_publish).",
     9004: "Instagram konnte die Datei nicht abrufen. Ist das GitHub-Repository öffentlich (public)?",
     2207026: "Das Video hat ein Format, das Instagram ablehnt.",
 }
@@ -49,21 +56,57 @@ def _fehler(resp):
     return KitFehler(f"Instagram meldet einen Fehler (HTTP {resp.status_code}): {meldung}. {hilfe}".strip())
 
 
+def ist_systemnutzer_token(token):
+    """True für Facebook-/Systemnutzer-Tokens (EAA…), die nie ablaufen."""
+    return token.startswith("EA")
+
+
+def _api(token):
+    return FB_API if ist_systemnutzer_token(token) else IG_API
+
+
 def _get(pfad, token, **params):
-    resp = SITZUNG.get(f"{API}/{pfad}", params={**params, "access_token": token}, timeout=30)
+    resp = SITZUNG.get(f"{_api(token)}/{pfad}", params={**params, "access_token": token}, timeout=30)
     if not resp.ok:
         raise _fehler(resp)
     return resp.json()
 
 
-def konto(token):
-    """Gibt (user_id, username) des Tokens zurück."""
+def _konto_id_finden(token):
+    """Liest die Instagram-Konto-ID aus den Freigaben des Systemnutzer-Tokens."""
+    try:
+        daten = _get("debug_token", token, input_token=token).get("data", {})
+    except KitFehler:
+        daten = {}
+    ids = []
+    for freigabe in daten.get("granular_scopes", []):
+        if freigabe.get("scope", "").startswith("instagram"):
+            ids += [str(i) for i in freigabe.get("target_ids", []) if str(i) not in ids]
+    if len(ids) == 1:
+        return ids[0]
+    if not ids:
+        raise KitFehler(
+            "Die Instagram-Konto-ID ließ sich nicht automatisch ermitteln. Trage sie in einstellungen.yml bei "
+            "instagram_konto_id ein: die lange Zahl (beginnt meist mit 1784) unter deinem Kontonamen im "
+            "Meta-Dashboard bei 'Zugriffstokens generieren'."
+        )
+    raise KitFehler(
+        f"Der Token hat Zugriff auf mehrere Instagram-Konten ({', '.join(ids)}). Trage in einstellungen.yml bei "
+        "instagram_konto_id die richtige ID ein."
+    )
+
+
+def konto(token, konto_id=None):
+    """Gibt (konto_id, username) des Tokens zurück."""
+    if ist_systemnutzer_token(token):
+        uid = str(konto_id or _konto_id_finden(token))
+        return uid, _get(uid, token, fields="username").get("username", "")
     daten = _get("me", token, fields="user_id,username")
     return str(daten.get("user_id") or daten.get("id")), daten.get("username", "")
 
 
-def konto_pruefen(token, erwartet):
-    uid, name = konto(token)
+def konto_pruefen(token, erwartet, konto_id=None):
+    uid, name = konto(token, konto_id)
     if name.lower() != erwartet.lower():
         raise KitFehler(
             f"Der Token gehört zu @{name}, in einstellungen.yml steht aber @{erwartet}. "
@@ -87,7 +130,7 @@ def _container(uid, token, post, url):
         daten.update(media_type="STORIES", image_url=url)
     else:
         daten.update(image_url=url, caption=post["caption"])
-    resp = SITZUNG.post(f"{API}/{uid}/media", data=daten, timeout=60)
+    resp = SITZUNG.post(f"{_api(token)}/{uid}/media", data=daten, timeout=60)
     if not resp.ok:
         raise _fehler(resp)
     return resp.json()["id"]
@@ -109,7 +152,7 @@ def veroeffentlichen(token, uid, post, schlafen=time.sleep):
     for runde in (1, 2):
         cid = _container(uid, token, post, url)
         _warten(cid, token, schlafen)
-        resp = SITZUNG.post(f"{API}/{uid}/media_publish", data={"creation_id": cid, "access_token": token},
+        resp = SITZUNG.post(f"{_api(token)}/{uid}/media_publish", data={"creation_id": cid, "access_token": token},
                             timeout=60)
         if resp.ok:
             return resp.json().get("id")
@@ -122,7 +165,10 @@ def veroeffentlichen(token, uid, post, schlafen=time.sleep):
 # ---------------------------------------------------------------- Token-Erneuerung
 
 def token_erneuern(token):
-    """Verlängert den Token um 60 Tage. Gibt (neuer_token, tage) zurück."""
+    """Verlängert einen Instagram-Token (IGAA…) um 60 Tage. Gibt (neuer_token, tage) zurück.
+    Systemnutzer-Tokens laufen nie ab: dann (token, None)."""
+    if ist_systemnutzer_token(token):
+        return token, None
     resp = SITZUNG.get(REFRESH_URL, params={"grant_type": "ig_refresh_token", "access_token": token}, timeout=30)
     if not resp.ok:
         raise _fehler(resp)
