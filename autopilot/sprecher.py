@@ -33,9 +33,13 @@ def _piper_bereit():
 
 class Sprecher:
     def __init__(self, tempo=1.0):
+        modell = _piper_bereit()  # installiert Piper bei Bedarf, darum erst danach importieren
+        import importlib
+
+        importlib.invalidate_caches()
         from piper import PiperVoice, SynthesisConfig
 
-        self.stimme = PiperVoice.load(_piper_bereit())
+        self.stimme = PiperVoice.load(modell)
         self.config = SynthesisConfig(length_scale=tempo)
 
     def sprechen(self, text, ziel):
