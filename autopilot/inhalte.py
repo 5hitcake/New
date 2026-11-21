@@ -128,7 +128,7 @@ def token_faellig(verlauf, heute):
 # ---------------------------------------------------------------- Caption
 
 def caption_bauen(cfg, eintrag, zufall=random):
-    eigene = cfg["hashtags_kategorie"].get(eintrag.get("kategorie", ""), [])
+    eigene = eintrag.get("hashtags") or cfg["hashtags_kategorie"].get(eintrag.get("kategorie", ""), [])
     allgemein = [t for t in cfg["hashtags_allgemein"] if t not in eigene]
     anzahl = max(0, cfg["anzahl_hashtags"])
     aus_kategorie = zufall.sample(eigene, min(len(eigene), (anzahl + 1) // 2))

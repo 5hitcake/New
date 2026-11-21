@@ -15,7 +15,7 @@ import tempfile
 import time
 from datetime import datetime
 
-from . import design, inhalte, instagram, reel, reels
+from . import design, inhalte, instagram, reel, reels, sprueche
 from .einstellungen import AUSGABE, ROOT, VERLAUF, KitFehler, laden
 
 AKTIONEN = ("automatisch", "setup-pruefen", "vorschau", "jetzt-posten", "jetzt-story-posten", "token-erneuern")
@@ -68,13 +68,20 @@ def _rel(pfad):
 # ---------------------------------------------------------------- erstellen
 
 def _zitat_fuer_story(cfg, verlauf, eintraege):
+    """Die Story zeigt den Spruch des heutigen Bildes (gleicher Hintergrund)."""
     bild = _lesen("bild")
-    gesucht = bild["eintrag_id"] if bild else None
-    if not gesucht and verlauf["heute_bild"].get("datum") == _jetzt(cfg).date().isoformat():
-        gesucht = verlauf["heute_bild"].get("id")
-    treffer = [e for e in eintraege if e["id"] == gesucht]
-    hg = bild["hintergrund"] if bild and treffer else None
-    return (treffer[0] if treffer else inhalte.naechster(eintraege, verlauf, "bild", cfg["reihenfolge"])), hg
+    if bild and bild.get("eintrag"):
+        return bild["eintrag"], bild["hintergrund"]
+    heute = verlauf["heute_bild"]
+    if heute.get("datum") == _jetzt(cfg).date().isoformat():
+        if heute.get("eintrag"):
+            return heute["eintrag"], heute.get("hintergrund")
+        if cfg["texte"]["quelle"] == "datei":
+            eintraege = eintraege or inhalte.posts_laden()
+            treffer = [e for e in eintraege if e["id"] == heute.get("id")]
+            if treffer:
+                return treffer[0], heute.get("hintergrund")
+    return sprueche.naechster_spruch(cfg, verlauf, "bild", eintraege), None
 
 
 def erstellen(cfg, typ, verlauf=None, eintraege=None, sprecher_fabrik=None):
@@ -93,28 +100,26 @@ def erstellen(cfg, typ, verlauf=None, eintraege=None, sprecher_fabrik=None):
                            "hintergrund": None})
 
     if typ in ("bild", "story"):
-        eintraege = eintraege or inhalte.posts_laden()
         if typ == "story":
             eintrag, hg = _zitat_fuer_story(cfg, verlauf, eintraege)
         else:
-            eintrag, hg = inhalte.naechster(eintraege, verlauf, "bild", cfg["reihenfolge"]), None
+            eintrag, hg = sprueche.naechster_spruch(cfg, verlauf, "bild", eintraege), None
         hg = hg or design.hintergrund_waehlen(cfg, verlauf)
         datei = os.path.join(AUSGABE, f"{typ}_{stempel}_{eintrag['id']}.jpg")
         design.bild_zeichnen(cfg, eintrag, hg, design.FEED if typ == "bild" else design.HOCH, datei)
         return _schreiben({"typ": typ, "datei": _rel(datei), "eintrag_id": eintrag["id"], "text": eintrag["text"],
-                           "hintergrund": hg,
+                           "hintergrund": hg, "eintrag": eintrag,
                            "caption": "" if typ == "story" else inhalte.caption_bauen(cfg, eintrag)})
 
     # ---- Reel
     musik = reel.musik_waehlen()
     if art == "zitate":
-        eintraege = eintraege or inhalte.posts_laden()
-        eintrag = inhalte.naechster(eintraege, verlauf, "reel", cfg["reihenfolge"])
+        eintrag = sprueche.naechster_spruch(cfg, verlauf, "reel", eintraege)
         hg = design.hintergrund_waehlen(cfg, verlauf)
         datei = os.path.join(AUSGABE, f"reel_{stempel}_{eintrag['id']}.mp4")
         reel.reel_bauen(cfg, eintrag, hg, datei, musik=musik)
         return _schreiben({"typ": "reel", "datei": _rel(datei), "eintrag_id": eintrag["id"], "text": eintrag["text"],
-                           "hintergrund": hg, "caption": inhalte.caption_bauen(cfg, eintrag)})
+                           "hintergrund": hg, "eintrag": eintrag, "caption": inhalte.caption_bauen(cfg, eintrag)})
 
     if art == "geschichten":
         from . import geschichten, sprecher
@@ -135,13 +140,12 @@ def erstellen(cfg, typ, verlauf=None, eintraege=None, sprecher_fabrik=None):
         raise KitFehler("Im Ordner medien liegen noch keine Fotos oder Videos. Lade welche hoch (Anleitung).")
     eintrag = None
     if cfg["eigene_medien"]["text_einblenden"]:
-        eintraege = eintraege or inhalte.posts_laden()
-        eintrag = inhalte.naechster(eintraege, verlauf, "reel", cfg["reihenfolge"])
+        eintrag = sprueche.naechster_spruch(cfg, verlauf, "reel", eintraege)
     datei = os.path.join(AUSGABE, f"reel_{stempel}.mp4")
     dauer, titel = reels.medien_reel(cfg, dateien, datei, eintrag, musik)
     leer = {"text": "", "autor": "", "kategorie": ""}
     return _schreiben({"typ": "reel", "datei": _rel(datei), "titelbild": _rel(titel), "medien": dateien,
-                       "eintrag_id": eintrag["id"] if eintrag else None,
+                       "eintrag_id": eintrag["id"] if eintrag else None, "eintrag": eintrag,
                        "text": eintrag["text"] if eintrag else ", ".join(dateien), "dauer": dauer,
                        "caption": inhalte.caption_bauen(cfg, eintrag or leer), "hintergrund": None})
 
@@ -159,11 +163,15 @@ def posten(cfg, typ):
     verlauf = inhalte.verlauf_laden()
     heute = _jetzt(cfg).date().isoformat()
     verlauf["zuletzt"][typ] = heute
-    if post.get("eintrag_id") and typ in ("bild", "reel"):
+    eintrag = post.get("eintrag") or {}
+    if eintrag.get("ki") and typ in ("bild", "reel"):
+        sprueche.merken(verlauf, eintrag["text"])
+    elif post.get("eintrag_id") and typ in ("bild", "reel"):
         alle = [e["id"] for e in inhalte.posts_laden()]
         inhalte.als_benutzt_markieren(verlauf, typ, post["eintrag_id"], alle)
     if typ == "bild":
-        verlauf["heute_bild"] = {"datum": heute, "id": post["eintrag_id"]}
+        verlauf["heute_bild"] = {"datum": heute, "id": post["eintrag_id"], "eintrag": post.get("eintrag"),
+                                 "hintergrund": post.get("hintergrund")}
     if post.get("merken"):
         verlauf["wiki_benutzt"] = (verlauf.get("wiki_benutzt", []) + post["merken"])[-2000:]
     if post.get("medien"):
@@ -239,9 +247,14 @@ def pruefen():
         cfg = None
 
     art = cfg["inhaltsart"] if cfg else None
-    if art in ("zitate", "eigene_medien"):
+    braucht_text = art == "zitate" or (art == "eigene_medien" and cfg["eigene_medien"]["text_einblenden"])
+    if braucht_text and cfg["texte"]["quelle"] == "ki":
+        ok(f"Sprüche: die KI schreibt neue zum Thema „{cfg['texte']['thema']}“")
+        erfolg, text = _cloudflare_ok()
+        (ok if erfolg else schlecht)(text)
+    elif braucht_text:
         try:
-            ok(f"posts.csv: {len(inhalte.posts_laden())} Texte gefunden")
+            ok(f"posts.csv: {len(inhalte.posts_laden())} Sprüche gefunden")
         except KitFehler as exc:
             schlecht(str(exc))
     if art == "zitate":

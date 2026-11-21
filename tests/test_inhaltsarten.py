@@ -379,3 +379,27 @@ def test_fiktion_merkt_titel():
     ergebnis = geschichten.neue_geschichte(g, verlauf, chat=chat)
     assert ergebnis["merken"] == ["fiktion:Das Haus am See"] and ergebnis["quelle_art"] == "fiktion"
     assert "frei erfundene" in gesehen["system"] and "Der Brunnen" in gesehen["nutzer"]
+
+
+# ---------------------------------------------------------------- KI-Sprüche
+
+def test_ki_spruch_und_caption(monkeypatch):
+    from autopilot import sprueche
+    cfg = pruefen({"instagram_name": "test", "texte": {"quelle": "ki", "thema": "Fitness"}})
+    antworten = iter([
+        json.dumps({"text": "Alt und bekannt.", "hashtags": []}),
+        json.dumps({"text": "Jeder Schritt zählt, auch der kleine nach dem Aufstehen.",
+                    "kategorie": "Training", "hashtags": ["#fitness", "Workout", "#fitness"]}),
+    ])
+    verlauf = {"ki_sprueche": ["Alt und bekannt."]}
+    eintrag = sprueche.ki_spruch(cfg, verlauf, chat=lambda n, m: next(antworten))
+    assert eintrag["text"].startswith("Jeder Schritt") and eintrag["hashtags"] == ["#fitness", "#workout"]
+    cap = inhalte.caption_bauen(cfg, eintrag)
+    assert "#fitness" in cap and "#workout" in cap
+    sprueche.merken(verlauf, eintrag["text"])
+    assert verlauf["ki_sprueche"][-1] == eintrag["text"]
+
+
+def test_ki_braucht_thema():
+    with pytest.raises(KitFehler, match="thema"):
+        pruefen({"instagram_name": "test", "texte": {"quelle": "ki", "thema": ""}})

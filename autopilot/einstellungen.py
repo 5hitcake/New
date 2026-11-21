@@ -137,6 +137,15 @@ def pruefen(roh):
     tempo = float(g.get("sprechtempo", 1.0))
     if not 0.6 <= tempo <= 1.5:
         raise KitFehler("geschichten → sprechtempo muss zwischen 0.6 und 1.5 liegen.")
+    t = roh.get("texte") or {}
+    texte_quelle = str(t.get("quelle", "datei")).strip().lower()
+    if texte_quelle not in ("datei", "ki"):
+        raise KitFehler("texte → quelle muss \"datei\" oder \"ki\" sein.")
+    texte_ki = str(t.get("text_ki", "cloudflare")).strip().lower()
+    if texte_ki not in ("cloudflare", "claude"):
+        raise KitFehler("texte → text_ki muss \"cloudflare\" oder \"claude\" sein.")
+    if texte_quelle == "ki" and not str(t.get("thema", "")).strip():
+        raise KitFehler("texte → thema: Bei quelle \"ki\" bitte ein Thema eintragen, z.B. \"Fitness und gesunde Gewohnheiten\".")
     m = roh.get("eigene_medien") or {}
     pro_reel = int(m.get("pro_reel", 4))
     sek = float(m.get("sekunden_pro_clip", 2.5))
@@ -157,6 +166,12 @@ def pruefen(roh):
             "sprechtempo": tempo,
             "text_ki": text_ki,
             "hashtags": [str(x) for x in g.get("hashtags") or []],
+        },
+        "texte": {
+            "quelle": texte_quelle,
+            "thema": str(t.get("thema", "")).strip(),
+            "stil": str(t.get("stil", "")).strip() or "kurz, positiv, direkt, in der Du-Form",
+            "text_ki": texte_ki,
         },
         "eigene_medien": {
             "pro_reel": pro_reel,

@@ -26,6 +26,24 @@ instagram_konto_id: "17841474886132946"
 inhaltsart: "zitate"
 
 # ------------------------------------------------------------
+#  Sprüche (für Zitat-Posts und den Text auf Medien-Reels)
+# ------------------------------------------------------------
+texte:
+  # Woher kommen die Sprüche?
+  #   "datei" = aus inhalte/posts.csv. Mitgeliefert sind 104 Sprüche zum Thema
+  #             Motivation und Mindset. Für ein anderes Thema dort eigene eintragen.
+  #   "ki"    = eine kostenlose KI schreibt jeden Tag einen neuen Spruch zu deinem
+  #             Thema (braucht das Cloudflare-Konto, siehe Anleitung)
+  quelle: "datei"
+
+  # Nur bei "ki": dein Thema und der Ton der Sprüche
+  thema: "Motivation und Mindset"
+  stil: "kurz, positiv, direkt, in der Du-Form"
+
+  # Nur bei "ki": "cloudflare" (kostenlos) oder "claude" (optional, kostenpflichtig)
+  text_ki: "cloudflare"
+
+# ------------------------------------------------------------
 #  Zeitplan
 # ------------------------------------------------------------
 zeitplan:
@@ -161,5 +179,6 @@ eigene_medien:
   pro_reel: 4
   # So lange ist jedes Foto/Video zu sehen (Sekunden)
   sekunden_pro_clip: 2.5
-  # Einen Spruch aus inhalte/posts.csv ins Reel schreiben? (true/false)
+  # Einen Spruch ins Reel schreiben? (true/false). Woher er kommt, steht oben bei "texte".
+  # Bei false entsteht die Caption nur aus den Hashtags.
   text_einblenden: true

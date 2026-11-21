@@ -287,7 +287,7 @@ def test_posten_aktualisiert_verlauf(cfg, arbeitsordner, monkeypatch):
     heute = datetime.now(cfg["zeitzone"]).date().isoformat()
     assert verlauf["zuletzt"]["bild"] == heute
     assert verlauf["benutzt"]["bild"] == [post["eintrag_id"]]
-    assert verlauf["heute_bild"] == {"datum": heute, "id": post["eintrag_id"]}
+    assert {k: verlauf["heute_bild"][k] for k in ("datum", "id")} == {"datum": heute, "id": post["eintrag_id"]}
 
 
 # ---------------------------------------------------------------- Workflow
