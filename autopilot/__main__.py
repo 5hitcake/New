@@ -269,7 +269,8 @@ def _cloudflare_ok():
     konto = os.environ.get("CLOUDFLARE_ACCOUNT_ID", "").strip()
     token = os.environ.get("CLOUDFLARE_API_TOKEN", "").strip()
     if not konto or not token:
-        return False, "Secrets CLOUDFLARE_ACCOUNT_ID und CLOUDFLARE_API_TOKEN fehlen (Anleitung: Cloudflare)"
+        from .einstellungen import cloudflare_hinweis
+        return False, cloudflare_hinweis()
     _maskieren(token)
     kopf = {"Authorization": f"Bearer {token}"}
     for url in (f"https://api.cloudflare.com/client/v4/accounts/{konto}/tokens/verify",

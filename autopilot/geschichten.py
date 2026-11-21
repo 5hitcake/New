@@ -213,8 +213,8 @@ def _cloudflare_chat(nachrichten, modell, http=HTTP):
     konto = os.environ.get("CLOUDFLARE_ACCOUNT_ID", "").strip()
     token = os.environ.get("CLOUDFLARE_API_TOKEN", "").strip()
     if not konto or not token:
-        raise KitFehler("Für Geschichten fehlen die Secrets CLOUDFLARE_ACCOUNT_ID und CLOUDFLARE_API_TOKEN "
-                        "(Anleitung: Cloudflare einrichten).")
+        from .einstellungen import cloudflare_hinweis
+        raise KitFehler(cloudflare_hinweis())
     resp = http.post(f"https://api.cloudflare.com/client/v4/accounts/{konto}/ai/run/{modell}",
                      headers={"Authorization": f"Bearer {token}"}, timeout=180,
                      json={"messages": nachrichten, "max_tokens": 2500, "temperature": 0.6})
