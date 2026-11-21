@@ -216,3 +216,15 @@ def pruefen(roh):
         "hashtags_kategorie": {str(k): list(v or []) for k, v in (tags.get("nach_kategorie") or {}).items()},
         "musik_lautstaerke": lautstaerke,
     }
+
+
+def fehlende_cloudflare_secrets():
+    """Namen der fehlenden Cloudflare-Secrets, leer wenn beide da sind."""
+    return [n for n in ("CLOUDFLARE_ACCOUNT_ID", "CLOUDFLARE_API_TOKEN") if not os.environ.get(n, "").strip()]
+
+
+def cloudflare_hinweis():
+    fehlt = fehlende_cloudflare_secrets()
+    return (f"Auf GitHub fehlt das Secret {' und '.join(fehlt)} (oder es ist leer). Name genau so schreiben, "
+            "ohne Leerzeichen, und den Wert einfügen. Anleitung: Rubrik 07 Cloudflare.")
+
