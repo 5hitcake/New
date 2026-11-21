@@ -1,9 +1,21 @@
 {
   "benutzt": {
-    "bild": [],
+    "bild": [
+      "de855f9dbf"
+    ],
     "reel": []
   },
-  "zuletzt": {},
-  "heute_bild": {},
-  "token_erneuert": "2026-11-21"
+  "zuletzt": {
+    "bild": "2026-11-21",
+    "story": "2026-11-21"
+  },
+  "heute_bild": {
+    "datum": "2026-11-21",
+    "id": "de855f9dbf"
+  },
+  "token_erneuert": "2026-11-21",
+  "hintergruende": [
+    "verlauf:1",
+    "verlauf:1"
+  ]
 }
