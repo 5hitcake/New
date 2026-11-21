@@ -74,14 +74,25 @@ def _get(pfad, token, **params):
 
 def _konto_id_finden(token):
     """Liest die Instagram-Konto-ID aus den Freigaben des Systemnutzer-Tokens."""
+    ids = []
     try:
         daten = _get("debug_token", token, input_token=token).get("data", {})
-    except KitFehler:
-        daten = {}
-    ids = []
-    for freigabe in daten.get("granular_scopes", []):
-        if freigabe.get("scope", "").startswith("instagram"):
-            ids += [str(i) for i in freigabe.get("target_ids", []) if str(i) not in ids]
+        for freigabe in daten.get("granular_scopes", []):
+            if freigabe.get("scope", "").startswith("instagram"):
+                ids += [str(i) for i in freigabe.get("target_ids", []) if str(i) not in ids]
+        if not ids:
+            print(f"Hinweis: debug_token ohne Instagram-Konto (Freigaben: "
+                  f"{[f.get('scope') for f in daten.get('granular_scopes', [])]})")
+    except KitFehler as exc:
+        print(f"Hinweis: debug_token nicht möglich ({exc})")
+    if not ids:
+        try:
+            for seite in _get("me/accounts", token, fields="instagram_business_account").get("data", []):
+                iba = (seite.get("instagram_business_account") or {}).get("id")
+                if iba and str(iba) not in ids:
+                    ids.append(str(iba))
+        except KitFehler as exc:
+            print(f"Hinweis: me/accounts nicht möglich ({exc})")
     if len(ids) == 1:
         return ids[0]
     if not ids:
