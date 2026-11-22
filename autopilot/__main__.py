@@ -326,21 +326,22 @@ def pruefen():
             if os.environ.get("GITHUB_ACTIONS"):
                 inhalte.verlauf_speichern(verlauf)
         except KitFehler as exc:
-            schlecht(str(exc))
+            from .einstellungen import fehlende_cloudflare_secrets
+            if not fehlende_cloudflare_secrets():  # fehlende Secrets meldet die Cloudflare-Zeile weiter unten
+                schlecht(str(exc))
     braucht_text = cfg is not None and (art == "zitate" or cfg["plan"]["bild"]["aktiv"]
                                          or (art == "eigene_medien" and cfg["eigene_medien"]["text_einblenden"]))
+    braucht_cf = False
     if braucht_text and cfg["texte"]["quelle"] == "ki":
-        ok(f"Texte: die KI schreibt neue zum Thema „{cfg['texte']['thema'] or cfg['beschreibung'][:60]}“")
-        erfolg, text = _cloudflare_ok()
-        (ok if erfolg else schlecht)(text)
-    if cfg and cfg["bildpost"].startswith("ki") and cfg["plan"]["bild"]["aktiv"] and not braucht_text:
-        erfolg, text = _cloudflare_ok()
-        (ok if erfolg else schlecht)(text)
+        ok("Texte: die KI schreibt jeden Tag neue, passend zu deiner Beschreibung")
+        braucht_cf = True
     elif braucht_text:
         try:
             ok(f"posts.csv: {len(inhalte.posts_laden())} Sprüche gefunden")
         except KitFehler as exc:
             schlecht(str(exc))
+    if cfg and cfg["bildpost"].startswith("ki") and cfg["plan"]["bild"]["aktiv"]:
+        braucht_cf = True
     if art == "zitate":
         fotos = design.eigene_hintergruende()
         ok(f"Hintergründe: {len(fotos)} eigene Fotos" if fotos else "Hintergründe: Farbverläufe (keine eigenen Fotos)")
@@ -354,13 +355,15 @@ def pruefen():
         else:
             ok({"wikipedia": "Quelle: Wikipedia (wahre Geschichten mit Quellenangabe)",
                 "fiktion": "Quelle: Fiktion (frei erfundene Geschichten, in der Caption gekennzeichnet)"}[quelle])
-        erfolg, text = _cloudflare_ok()
-        (ok if erfolg else schlecht)(text)
+        braucht_cf = True
         if cfg["geschichten"]["text_ki"] == "claude":
             if os.environ.get("ANTHROPIC_API_KEY", "").strip():
                 ok("Claude-API-Schlüssel hinterlegt (kostenpflichtige Option)")
             else:
                 schlecht("text_ki ist \"claude\", aber das Secret ANTHROPIC_API_KEY fehlt")
+    if braucht_cf:
+        erfolg, text = _cloudflare_ok()
+        (ok if erfolg else schlecht)(text)
     if art == "eigene_medien":
         anzahl, n = len(reels.eigene_medien_liste()), cfg["eigene_medien"]["pro_reel"]
         if anzahl == 0:
@@ -435,9 +438,16 @@ def vorschau(cfg, sprecher_fabrik=None):
         teile.append(f"- **{typ}**: {post['text'][:120]}")
         if post["caption"]:
             teile.append(f"  Caption: `{post['caption'][:140].replace(chr(10), ' ')}…`")
+        if post.get("skript"):
+            sk = post["skript"]
+            zeilen = [sk["hook"]["text"]] + [x["text"] for x in sk["szenen"]] + [sk["frage"]]
+            teile.append("  Skript: " + " / ".join(z.replace("*", "") for z in zeilen))
+            if sk.get("quelle"):
+                teile.append(f"  Quelle: {sk['quelle']}")
         if "farbverlauf" in post.get("bildquellen", []):
             teile.append("  ⚠️ Einige KI-Bilder fehlten und wurden durch Farbverläufe ersetzt.")
     _zusammenfassung("\n".join(teile))
+    print("\n".join(teile))
 
 
 # ---------------------------------------------------------------- git
