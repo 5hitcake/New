@@ -11,7 +11,7 @@ import time
 import requests
 from PIL import Image
 
-OHNE_TEXT = "no text, no letters, no words, no signs, no writing, no logos, blank surfaces"
+OHNE_TEXT = "no text, no letters, no words, no signs, no writing, no logos, blank surfaces, no blood, no red stains"
 MODELLE = ["@cf/black-forest-labs/flux-1-schnell", "@cf/black-forest-labs/flux-2-klein-4b"]
 BREITE, HOEHE = 768, 1344
 
