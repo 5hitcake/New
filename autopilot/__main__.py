@@ -185,7 +185,7 @@ def erstellen(cfg, typ, verlauf=None, eintraege=None, sprecher_fabrik=None):
         from . import geschichten, sprecher
 
         skript = geschichten.neue_geschichte(cfg["geschichten"], verlauf)
-        fabrik = sprecher_fabrik or sprecher.Sprecher
+        fabrik = sprecher_fabrik or sprecher.erstellen
         g = cfg["geschichten"]
         klang = sprecher.stimmung_waehlen(g["stimmung"], cfg["texte"]["stil"] or cfg.get("beschreibung", ""))
         if g["sprecher"] == "aus":
@@ -193,8 +193,9 @@ def erstellen(cfg, typ, verlauf=None, eintraege=None, sprecher_fabrik=None):
         elif sprecher_fabrik:
             stimme = fabrik(g["sprechtempo"])
         else:
-            stimme = fabrik(g["sprechtempo"], klang, g["sprecher"])
-            print(f"Sprecher: {g['sprecher']}, Klang „{klang}“")
+            name = sprecher.sprecher_waehlen(g["sprecher"], klang)
+            stimme = fabrik(g["sprechtempo"], klang, name)
+            print(f"Sprecher: {name}, Klang „{klang}“")
         datei = os.path.join(AUSGABE, f"reel_{stempel}.mp4")
         dauer, titel, quellen = reels.geschichten_reel(cfg, skript, datei, musik, stimme)
         return _schreiben({"typ": "reel", "datei": _rel(datei), "titelbild": _rel(titel),
