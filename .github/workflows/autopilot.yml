@@ -11,7 +11,7 @@ on:
         description: "Was soll passieren?"
         type: choice
         default: setup-pruefen
-        options: [setup-pruefen, vorschau, jetzt-posten, jetzt-story-posten, token-erneuern, automatisch]
+        options: [setup-pruefen, vorschau, stimmproben, jetzt-posten, jetzt-story-posten, token-erneuern, automatisch]
 
 permissions:
   contents: write
@@ -54,7 +54,7 @@ jobs:
         run: python -m autopilot lauf --aktion "${{ github.event.inputs.aktion || 'automatisch' }}"
 
       - name: Vorschau zum Herunterladen
-        if: github.event.inputs.aktion == 'vorschau'
+        if: github.event.inputs.aktion == 'vorschau' || github.event.inputs.aktion == 'stimmproben'
         uses: actions/upload-artifact@v6
         with:
           name: vorschau

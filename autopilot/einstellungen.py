@@ -127,8 +127,10 @@ def pruefen(roh):
         raise KitFehler(f"inhaltsart '{art}' gibt es nicht. Erlaubt: {', '.join(INHALTSARTEN)}.")
     g = roh.get("geschichten") or {}
     sprecher = str(g.get("sprecher", "thorsten")).strip().lower()
-    if sprecher not in ("thorsten", "aus"):
-        raise KitFehler("geschichten → sprecher muss \"thorsten\" oder \"aus\" sein.")
+    sprecher = sprecher.replace("ü", "ue").replace("flüstern", "fluestern")
+    erlaubt = ("thorsten", "thorsten_ruhig", "thorsten_fluestern", "thorsten_muede", "karlsson", "aus")
+    if sprecher not in erlaubt:
+        raise KitFehler("geschichten → sprecher muss einer von diesen sein: " + ", ".join(erlaubt) + ".")
     text_ki = str(g.get("text_ki", "cloudflare")).strip().lower()
     if text_ki not in ("cloudflare", "claude"):
         raise KitFehler("geschichten → text_ki muss \"cloudflare\" oder \"claude\" sein.")

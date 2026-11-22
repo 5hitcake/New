@@ -19,7 +19,7 @@ from datetime import datetime
 from . import design, inhalte, instagram, profil, reel, reels, sprueche
 from .einstellungen import AUSGABE, ROOT, VERLAUF, KitFehler, laden
 
-AKTIONEN = ("automatisch", "setup-pruefen", "vorschau", "jetzt-posten", "jetzt-story-posten", "token-erneuern")
+AKTIONEN = ("automatisch", "setup-pruefen", "vorschau", "stimmproben", "jetzt-posten", "jetzt-story-posten", "token-erneuern")
 
 
 def _zusammenfassung(text):
@@ -169,7 +169,10 @@ def erstellen(cfg, typ, verlauf=None, eintraege=None, sprecher_fabrik=None):
                            "caption": "" if typ == "story" else inhalte.caption_bauen(cfg, eintrag)})
 
     # ---- Reel
-    musik = reel.musik_waehlen()
+    stil = cfg["texte"]["stil"] or cfg.get("beschreibung", "")
+    from .sprecher import stimmung_waehlen
+
+    musik = reel.musik_waehlen(stimmung=stimmung_waehlen(cfg["geschichten"]["stimmung"], stil))
     if art == "zitate":
         eintrag = sprueche.naechster_spruch(cfg, verlauf, "reel", eintraege)
         hg = _hintergrund_fuer(cfg, verlauf, eintrag, stempel, hoch=True)
@@ -185,13 +188,13 @@ def erstellen(cfg, typ, verlauf=None, eintraege=None, sprecher_fabrik=None):
         fabrik = sprecher_fabrik or sprecher.Sprecher
         g = cfg["geschichten"]
         klang = sprecher.stimmung_waehlen(g["stimmung"], cfg["texte"]["stil"] or cfg.get("beschreibung", ""))
-        if g["sprecher"] != "thorsten":
+        if g["sprecher"] == "aus":
             stimme = None
         elif sprecher_fabrik:
             stimme = fabrik(g["sprechtempo"])
         else:
-            stimme = fabrik(g["sprechtempo"] * (1.08 if klang == "duester" else 1.0), klang)
-            print(f"Sprecher: Thorsten, Klang „{klang}“")
+            stimme = fabrik(g["sprechtempo"], klang, g["sprecher"])
+            print(f"Sprecher: {g['sprecher']}, Klang „{klang}“")
         datei = os.path.join(AUSGABE, f"reel_{stempel}.mp4")
         dauer, titel, quellen = reels.geschichten_reel(cfg, skript, datei, musik, stimme)
         return _schreiben({"typ": "reel", "datei": _rel(datei), "titelbild": _rel(titel),
@@ -487,6 +490,12 @@ def lauf(aktion, bereitstellen=None):
     if aktion == "vorschau":
         vorschau(cfg)
         return 0
+    if aktion == "stimmproben":
+        from . import sprecher
+
+        ok = sprecher.stimmproben(AUSGABE)
+        print(f"{len(ok)} Stimmproben fertig: unten bei Artifacts → vorschau herunterladen.")
+        return 0 if ok else 1
 
     bereitstellen = bereitstellen or medien_bereitstellen
     verlauf = inhalte.verlauf_laden()
