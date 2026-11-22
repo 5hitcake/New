@@ -18,11 +18,17 @@ def dauer(text, mindestens=0.0):
     return round(max(6.0, mindestens, min(14.0, len(text.split()) / 2.5 + 3.0)), 1)
 
 
-def musik_waehlen(zufall=random):
-    if not os.path.isdir(MUSIK):
-        return None
-    titel = sorted(f for f in os.listdir(MUSIK) if f.lower().endswith(MUSIKENDUNGEN))
-    return os.path.join(MUSIK, zufall.choice(titel)) if titel else None
+def _titel_in(ordner):
+    if not os.path.isdir(ordner):
+        return []
+    return sorted(os.path.join(ordner, f) for f in os.listdir(ordner) if f.lower().endswith(MUSIKENDUNGEN))
+
+
+def musik_waehlen(zufall=random, stimmung=None):
+    """Nimmt bevorzugt Musik aus dem Unterordner zur Stimmung (z.B. musik/duester),
+    sonst aus dem Ordner musik selbst."""
+    titel = (_titel_in(os.path.join(MUSIK, stimmung)) if stimmung else []) or _titel_in(MUSIK)
+    return zufall.choice(titel) if titel else None
 
 
 def reel_bauen(cfg, eintrag, hintergrund_schluessel, ziel, musik=None):
