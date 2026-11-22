@@ -19,7 +19,7 @@ from datetime import datetime
 from . import design, inhalte, instagram, profil, reel, reels, sprueche
 from .einstellungen import AUSGABE, ROOT, VERLAUF, KitFehler, laden
 
-AKTIONEN = ("automatisch", "setup-pruefen", "vorschau", "stimmproben", "jetzt-posten", "jetzt-story-posten", "token-erneuern")
+AKTIONEN = ("automatisch", "setup-pruefen", "vorschau", "stimmproben", "bildstile", "jetzt-posten", "jetzt-story-posten", "token-erneuern")
 
 
 def _zusammenfassung(text):
@@ -505,6 +505,21 @@ def lauf(aktion, bereitstellen=None):
     if aktion == "vorschau":
         vorschau(cfg)
         return 0
+    if aktion == "bildstile":
+        from . import ki_bilder
+
+        cfg = laden()
+        try:  # Motiv passend zum eigenen Thema, sonst ein neutrales Beispiel
+            cfg = mit_profil(cfg, inhalte.verlauf_laden())
+        except KitFehler as exc:
+            print(f"Profil nicht verfügbar ({exc}), nehme Beispielmotiv")
+        motiv = cfg.get("bildmotiv") or ki_bilder.STIL_PROBE_MOTIV
+        ok = ki_bilder.stilproben(AUSGABE, motiv)
+        if ok and os.environ.get("GITHUB_ACTIONS"):
+            (bereitstellen or medien_bereitstellen)()
+            repo = os.environ.get("GITHUB_REPOSITORY", "")
+            print(f"Ansehen: https://github.com/{repo}/tree/media (Bilder antippen) oder unten bei Artifacts.")
+        return 0 if ok else 1
     if aktion == "stimmproben":
         from . import sprecher
 

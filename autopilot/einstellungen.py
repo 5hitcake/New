@@ -157,6 +157,13 @@ def pruefen(roh):
         raise KitFehler("Beschreibe deinen Account in einstellungen.yml unter account → beschreibung "
                         "(oder trag bei texte → thema ein Thema ein). Daraus schreibt die KI die Texte.")
     bp = roh.get("bildpost") or {}
+    from .ki_bilder import STILE
+
+    look = str((roh.get("account") or {}).get("bildstil", "auto") or "auto").strip().lower()
+    look = look.replace("ö", "oe").replace("ü", "ue").replace("ä", "ae").replace("3d-animation", "3d")
+    if look != "auto" and look not in STILE:
+        raise KitFehler(f"account → bildstil '{look}' gibt es nicht. Erlaubt: auto, {', '.join(STILE)}.")
+    look_prompt = STILE[look][1] if look != "auto" else ""
     bildstil_post = str(bp.get("stil", "text")).strip().lower()
     if bildstil_post not in BILDSTILE:
         raise KitFehler(f"bildpost → stil '{bildstil_post}' gibt es nicht. Erlaubt: {', '.join(BILDSTILE)}.")
@@ -182,7 +189,7 @@ def pruefen(roh):
             "suchbegriffe": [str(x) for x in g.get("suchbegriffe") or []],
             "suchbegriffe_englisch": [str(x) for x in g.get("suchbegriffe_englisch") or []],
             "startartikel": [str(x) for x in g.get("startartikel") or []],
-            "bildstil": str(g.get("bildstil", "")).strip(),
+            "bildstil": str(g.get("bildstil", "")).strip() or look_prompt,
             "akzentfarbe": _farbe(g.get("akzentfarbe", "#E5484D"), "geschichten → akzentfarbe"),
             "sprecher": sprecher,
             "sprechtempo": tempo,
@@ -203,7 +210,8 @@ def pruefen(roh):
         },
         "beschreibung": beschreibung,
         "bildpost": bildstil_post,
-        "bildstil": str(bp.get("bildstil", "")).strip(),
+        "bildstil": str(bp.get("bildstil", "")).strip() or look_prompt,
+        "bild_look": look,
         "bildmotiv": str(bp.get("motiv", "")).strip(),
         "mindestdauer": mindestdauer,
         "instagram_name": name,

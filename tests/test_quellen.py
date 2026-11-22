@@ -248,3 +248,26 @@ def test_wissen_mit_sachthema_nutzt_wikipedia():
     assert "Die Mary Celeste war eine Brigg" in gesehen[1]
     assert skript["quelle"] == "Mary Celeste"
     assert "Fakten: Wikipedia (Mary Celeste)" in reels.geschichten_caption({"geschichten": {"hashtags": []}}, skript)
+
+
+def test_bildstil_auswahl_und_stilproben(tmp_path):
+    from PIL import Image
+
+    from autopilot import ki_bilder
+    from autopilot.einstellungen import ROOT, KitFehler, laden
+
+    cfg_datei = tmp_path / "e.yml"
+    vorlage = f"{ROOT}/einstellungen.yml"
+    text = __import__("pathlib").Path(vorlage).read_text(encoding="utf-8").replace('bildstil: "auto"', 'bildstil: "anime"', 1)
+    text = text.replace('instagram_name: "dein_account_name"', 'instagram_name: "test"')
+    text = text.replace('beschreibung: ""', 'beschreibung: "Katzen"', 1)
+    cfg_datei.write_text(text, encoding="utf-8")
+    cfg = laden(str(cfg_datei))
+    assert cfg["bild_look"] == "anime" and "anime" in cfg["bildstil"] and "anime" in cfg["geschichten"]["bildstil"]
+    cfg_datei.write_text(text.replace('bildstil: "anime"', 'bildstil: "ghibli"', 1), encoding="utf-8")
+    with pytest.raises(KitFehler, match="gibt es nicht"):
+        laden(str(cfg_datei))
+    prompts = []
+    dateien = ki_bilder.stilproben(str(tmp_path / "aus"), "a cat",
+                                   lambda p: prompts.append(p) or Image.new("RGB", (1024, 1024), "gray"))
+    assert len(dateien) == len(ki_bilder.STILE) and all("a cat" in p for p in prompts)

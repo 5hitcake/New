@@ -11,6 +11,26 @@ import time
 import requests
 from PIL import Image
 
+# Bildstile zur Auswahl (account → bildstil). Cloudflare hat keine fertigen Stil-Voreinstellungen,
+# der Stil wird über die Bildbeschreibung gesteuert. Bewusst ohne Namen von Studios oder Künstlern.
+STILE = {
+    "foto": ("Realistisch (Foto)", "realistic photograph, natural light, high detail, 35mm lens"),
+    "kino": ("Kinofilm", "cinematic film still, dramatic lighting, shallow depth of field, color graded"),
+    "anime": ("Anime, handgezeichnet", ("hand-drawn anime illustration, soft painted backgrounds, gentle pastel "
+                                       "colors, whimsical and warm, detailed scenery")),
+    "comic": ("Comic", "comic book illustration, bold black ink outlines, flat vibrant colors, halftone shading"),
+    "3d": ("3D-Animation", "3D animated movie style, soft rounded shapes, warm global illumination, colorful, cute"),
+    "aquarell": ("Aquarell", "watercolor painting, soft washes, visible paper texture, delicate colors"),
+    "oelgemaelde": ("Ölgemälde", "classical oil painting, visible brush strokes, rich deep colors, museum quality"),
+    "skizze": ("Bleistiftskizze", "detailed pencil sketch, graphite on paper, cross-hatching, monochrome"),
+    "pixel": ("Pixel-Art", "pixel art, 16-bit retro video game style, limited palette, crisp pixels"),
+    "flach": ("Flache Illustration", "flat vector illustration, minimal clean shapes, limited color palette, modern"),
+    "vintage": ("Vintage-Foto", "vintage 1970s photograph, film grain, faded warm colors, light leaks"),
+    "duester": ("Dunkel und düster", "dark moody photograph, low key lighting, fog, desaturated cold colors"),
+    "fantasy": ("Fantasy", "epic fantasy concept art, magical glowing atmosphere, highly detailed, dramatic sky"),
+}
+STIL_PROBE_MOTIV = "a small cozy house by a lake with mountains behind it, a cat sitting on the porch, evening"
+
 OHNE_TEXT = "no text, no letters, no words, no signs, no writing, no logos, blank surfaces, no blood, no red stains"
 MODELLE = ["@cf/black-forest-labs/flux-1-schnell", "@cf/black-forest-labs/flux-2-klein-4b"]
 BREITE, HOEHE = 768, 1344
@@ -56,3 +76,33 @@ def erzeugen(prompt, http=requests, schlafen=time.sleep):
                 print(f"Bild-KI {modell}: {type(exc).__name__}")
             schlafen(8 * (versuch + 1))
     return None
+
+
+def stilproben(ordner, motiv=STIL_PROBE_MOTIV, erzeugen_fn=None):
+    """Erzeugt dasselbe Motiv in allen Bildstilen, mit Namen im Bild. Gibt die Dateien zurück."""
+    from PIL import ImageDraw, ImageFont
+
+    from .design import _schrift
+
+    erzeugen_fn = erzeugen_fn or erzeugen
+    os.makedirs(ordner, exist_ok=True)
+    fertig = []
+    for schluessel, (name, stil) in STILE.items():
+        bild = erzeugen_fn(f"{motiv}, {stil}")
+        if bild is None:
+            print(f"Bildstil {schluessel}: kein Bild")
+            continue
+        bild.thumbnail((640, 640))
+        zeichnen = ImageDraw.Draw(bild)
+        try:
+            font = _schrift("Poppins-Bold", 30)
+        except Exception:  # noqa: BLE001
+            font = ImageFont.load_default()
+        text = f"{name}  ·  {schluessel}"
+        zeichnen.rectangle([0, bild.height - 56, bild.width, bild.height], fill=(0, 0, 0))
+        zeichnen.text((16, bild.height - 48), text, fill=(255, 255, 255), font=font)
+        ziel = os.path.join(ordner, f"bildstil_{schluessel}.jpg")
+        bild.save(ziel, quality=85)
+        fertig.append(ziel)
+        print(f"Bildstil {schluessel} erstellt")
+    return fertig
