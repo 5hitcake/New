@@ -112,7 +112,7 @@ Thema des Accounts: {thema}
 QUELLEN_REGELN = {
     "wissen_text": """
 Das Reel vermittelt Wissen zum angegebenen Thema. WICHTIGSTE REGEL: Alle Fakten, Zahlen und Namen stammen
-aus dem mitgelieferten Wikipedia-Artikel. Nichts dazuerfinden. Wähle die überraschendsten, anschaulichsten
+aus dem mitgelieferten Artikel (Wikipedia oder Reiseführer Wikivoyage). Nichts dazuerfinden. Wähle die überraschendsten, anschaulichsten
 Fakten aus und erkläre sie einfach. Gib dem Reel einen kurzen "titel".
 """,
     "wissen": """
@@ -320,7 +320,7 @@ def skript_schreiben(g, titel, text, chat=None, quelle="wikipedia"):
     if quelle in ("fiktion", "wissen", "nacherzaehlung"):
         nutzer = text
     elif quelle == "wissen_text":
-        nutzer = f'Thema des Reels: {titel}\n\nWikipedia-Artikel:\n\n{text}'
+        nutzer = f'Thema des Reels: {titel}\n\nArtikel:\n\n{text}'
     elif quelle == "nacherzaehlung_text":
         nutzer = f'Originaltext "{titel}":\n\n{text}'
     elif quelle == "eigene_texte":
@@ -370,14 +370,17 @@ IDEEN = {
     "nacherzaehlung": ('Nenne {n} bekannte, überlieferte Geschichten, die genau zum Account passen (z.B. aus der '
                        'Bibel, aus Sagen, Märchen, Mythen, Fabeln oder Legenden). Bei Bibelgeschichten in "stelle" '
                        'die genaue Bibelstelle (z.B. "Lukas 15,11-32" oder "1. Mose 6-9"), sonst die Herkunft '
-                       '(z.B. "Brüder Grimm", "griechische Mythologie", "Äsop"). '
+                       '(z.B. "Brüder Grimm", "griechische Mythologie", "Äsop"). Als "titel" den bekannten '
+                       'deutschen Titel (z.B. "Hänsel und Gretel", "Der Rattenfänger von Hameln"). '
                        'JSON: {{"ideen": [{{"titel": "...", "stelle": "..."}}]}}'),
     "wissen": ('Nenne {n} konkrete Themen für je ein kurzes Wissens-Reel, die genau zum Account passen: Tipps, '
                'kleine Anleitungen, überraschende Fakten oder "Mythos und Wahrheit". Konkret, z.B. "3 Fehler beim '
                'Kartoffeln kochen" statt "Kochen". Geht es um Sachwissen (z.B. Tiere, Geschichte, Natur, Technik, '
                'Weltraum), trage in "wikipedia" den Titel des DEUTSCHEN Wikipedia-Artikels ein, in dem die Fakten '
-               'stehen (z.B. "Tyrannosaurus"). Bei praktischen Tipps ohne passenden Artikel leer lassen. '
-               'JSON: {{"ideen": [{{"titel": "...", "wikipedia": "Artikeltitel oder leer"}}]}}'),
+               'stehen (z.B. "Tyrannosaurus"). Geht es um ein Reiseziel, trage in "reiseziel" den Ort oder die '
+               'Region ein (z.B. "Lissabon"). Bei praktischen Tipps ohne passenden Artikel beides leer lassen. '
+               'JSON: {{"ideen": [{{"titel": "...", "wikipedia": "Artikeltitel oder leer", '
+               '"reiseziel": "Ort oder leer"}}]}}'),
 }
 
 
@@ -417,6 +420,17 @@ def _bisherige_titel(verlauf, praefix):
             if m.startswith(praefix)]
 
 
+def _reiseartikel(ort):
+    from . import wikimedia
+
+    try:
+        s = wikimedia.reiseartikel(ort)
+    except Exception as exc:  # noqa: BLE001 - dann eben Wikipedia oder ohne Artikel
+        print(f"  Wikivoyage nicht erreichbar ({type(exc).__name__})")
+        return None
+    return (s[0], s[0], s[1], s[2]) if s else None
+
+
 def _wissensartikel(titel, http=HTTP):
     """Wikipedia-Artikel als Faktenquelle für ein Wissens-Reel, oder None."""
     if not titel or len(titel) > 120:
@@ -441,8 +455,13 @@ def _wissen(g, verlauf, http=HTTP, chat=None, zufall=random):
         titel = str(idee["titel"]).strip()[:120]
         if titel in bisher:
             continue
-        a = _wissensartikel(str(idee.get("wikipedia") or "").strip(), http)
-        if a:  # Sachwissen: Fakten aus Wikipedia statt aus dem Gedächtnis der KI
+        projekt, a = "wikipedia", None
+        reise = str(idee.get("reiseziel") or "").strip()
+        if reise:
+            projekt, a = "wikivoyage", _reiseartikel(reise)
+        if not a:
+            projekt, a = "wikipedia", _wissensartikel(str(idee.get("wikipedia") or "").strip(), http)
+        if a:  # Sachwissen: Fakten aus Wikipedia/Wikivoyage statt aus dem Gedächtnis der KI
             skript, grund = skript_schreiben(g, titel, a[2][:9000], chat, quelle="wissen_text")
             quelle = a[1]
         else:
@@ -450,11 +469,23 @@ def _wissen(g, verlauf, http=HTTP, chat=None, zufall=random):
                                              quelle="wissen")
             quelle = ""
         if skript:
-            skript.update(quelle_art="wissen", quelle=quelle, titel=titel, merken=[f"wissen:{titel}"])
+            skript.update(quelle_art="wissen", quelle=quelle, titel=titel, merken=[f"wissen:{titel}"],
+                          quelle_projekt=projekt if quelle else "")
             print(f"+ {titel}: Skript geschrieben")
             return skript
         print(f"- {titel}: {grund}")
     raise KitFehler("Die KI konnte gerade kein Wissens-Reel schreiben. Beim nächsten Lauf neuer Versuch.")
+
+
+def _originaltext(titel, herkunft):
+    """Originaltext einer überlieferten Geschichte von Wikisource, oder None."""
+    from . import wikimedia
+
+    try:
+        return wikimedia.originaltext(titel, herkunft)
+    except Exception as exc:  # noqa: BLE001 - dann aus dem Wissen der KI
+        print(f"  Wikisource nicht erreichbar ({type(exc).__name__}), erzähle ohne Originaltext")
+        return None
 
 
 def _nacherzaehlung(g, verlauf, chat=None, zufall=random):
@@ -470,6 +501,11 @@ def _nacherzaehlung(g, verlauf, chat=None, zufall=random):
         if titel in bisher:
             continue
         original = bibel.text(stelle) if bibel.ist_stelle(stelle) else None
+        projekt = "bibel" if original else ""
+        if not original:
+            quelltext = _originaltext(titel, stelle)
+            if quelltext:
+                original, projekt = (stelle or quelltext[0], quelltext[1][:9000]), "wikisource"
         if original:
             stelle, text = original
             skript, grund = skript_schreiben(g, f"{titel} ({stelle})", text, chat, quelle="nacherzaehlung_text")
@@ -477,7 +513,8 @@ def _nacherzaehlung(g, verlauf, chat=None, zufall=random):
             auftrag = f"Erzähle diese Geschichte nach: {titel}" + (f" (Herkunft: {stelle})." if stelle else ".")
             skript, grund = skript_schreiben(g, titel, auftrag, chat, quelle="nacherzaehlung")
         if skript:
-            skript.update(quelle_art="nacherzaehlung", quelle=stelle, titel=titel, merken=[f"erz:{titel}"])
+            skript.update(quelle_art="nacherzaehlung", quelle=stelle, titel=titel, merken=[f"erz:{titel}"],
+                          quelle_projekt=projekt)
             print(f"+ {titel} ({stelle or 'überliefert'}): Skript geschrieben")
             return skript
         print(f"- {titel}: {grund}")

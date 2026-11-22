@@ -112,12 +112,17 @@ def _herkunft(skript):
     art = skript.get("quelle_art", "wikipedia")
     if art == "nacherzaehlung":
         q = skript.get("quelle") or ""
+        if skript.get("quelle_projekt") == "wikisource":
+            zusatz = q if q and q.lower() not in skript.get("titel", "").lower() else skript.get("titel", "")
+            return HERKUNFT["nacherzaehlung"].format(quelle=f"{zusatz} (Originaltext: Wikisource)")
         if q and q.lower() not in skript.get("titel", "").lower():
             from . import bibel
             q = f"{q} ({bibel.UEBERSETZUNG})" if bibel.ist_stelle(q) else q
             return HERKUNFT["nacherzaehlung"].format(quelle=q)
         return "Nacherzählt nach der Überlieferung. Bilder KI-generiert."
     if art == "wissen" and skript.get("quelle"):
+        if skript.get("quelle_projekt") == "wikivoyage":
+            return f"Infos: Wikivoyage ({skript['quelle']}). Bilder KI-generiert."
         return f"Fakten: Wikipedia ({skript['quelle']}). Bilder KI-generiert."
     return HERKUNFT.get(art, "").format(titel=skript.get("titel", ""))
 

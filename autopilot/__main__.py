@@ -438,15 +438,16 @@ def vorschau(cfg, sprecher_fabrik=None):
     teile = ["## Vorschau (nichts wurde gepostet)", "", "Unten unter **Artifacts** → *vorschau* herunterladen.", ""]
     for typ in typen:
         post = erstellen(cfg, typ, verlauf, sprecher_fabrik=sprecher_fabrik)
-        teile.append(f"- **{typ}**: {post['text'][:120]}")
+        autor = (post.get("eintrag") or {}).get("autor")
+        teile.append(f"- **{typ}**: {post['text'][:240]}" + (f" — {autor}" if autor else ""))
         if post["caption"]:
-            teile.append(f"  Caption: `{post['caption'][:140].replace(chr(10), ' ')}…`")
+            teile.append(f"  Caption: `{post['caption'][:400].replace(chr(10), ' ')}`")
         if post.get("skript"):
             sk = post["skript"]
             zeilen = [sk["hook"]["text"]] + [x["text"] for x in sk["szenen"]] + [sk["frage"]]
             teile.append("  Skript: " + " / ".join(z.replace("*", "") for z in zeilen))
             if sk.get("quelle"):
-                teile.append(f"  Quelle: {sk['quelle']}")
+                teile.append(f"  Quelle: {sk['quelle']} {sk.get('quelle_projekt', '')}".rstrip())
         if "farbverlauf" in post.get("bildquellen", []):
             teile.append("  ⚠️ Einige KI-Bilder fehlten und wurden durch Farbverläufe ersetzt.")
     _zusammenfassung("\n".join(teile))

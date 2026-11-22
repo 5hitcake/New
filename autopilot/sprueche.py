@@ -54,7 +54,33 @@ Die hashtags: 4 bis 6 passende deutsche Hashtags, klein geschrieben."""
 MERKEN = 400
 
 
-def _pruefen(daten, zitat=False):
+SPRICHWORT = ("sprichwort", "volksmund", "deutsches sprichwort", "redensart")
+
+
+def _wikiquote(text, autor, http):
+    """Belegten Wortlaut von Wikiquote holen. Gibt (text, autor) zurück oder wirft ValueError mit
+    einer Auswahl echter Zitate, aus der die KI neu wählen soll."""
+    import requests
+
+    from . import wikimedia
+
+    seite = "Deutsche Sprichwörter" if autor.lower() in SPRICHWORT else autor
+    try:
+        status, wert, titel = wikimedia.zitat_pruefen(text, seite, http)
+    except (KitFehler, requests.RequestException) as exc:
+        print(f"  Wikiquote nicht erreichbar ({type(exc).__name__}), Zitat ungeprüft übernommen")
+        return text, autor
+    if status == "ok":
+        return wert, ("Sprichwort" if autor.lower() in SPRICHWORT else titel)
+    if status == "falsch":
+        auswahl = "\n- ".join(wert)
+        raise ValueError(f"Dieses Zitat ist auf Wikiquote für {titel} nicht belegt (oder falsch zugeschrieben). "
+                         f"Wähle WÖRTLICH eines dieser belegten Zitate von {titel} (oder eine andere Person):\n- {auswahl}")
+    raise ValueError(f"Zu \"{autor}\" gibt es auf Wikiquote keine belegten Zitate. Wähle ein bekanntes Zitat "
+                     "einer bekannten Person (oder einen Bibelvers).")
+
+
+def _pruefen(daten, zitat=False, http=None):
     text = re.sub(r"\s+", " ", str(daten.get("text", ""))).strip().strip('"„“').strip()
     autor = ""
     if zitat:
@@ -72,6 +98,8 @@ def _pruefen(daten, zitat=False):
             autor = re.sub(r"\s+", " ", str(daten.get("autor") or "")).strip().lstrip("—–- ").strip()[:60]
             if not autor:
                 raise ValueError("autor fehlt (Name oder 'Sprichwort')")
+            text, autor = _wikiquote(text, autor, http)
+            text = text.strip().strip('"„“').strip()
     grenze = (34, 230) if zitat else (26, 170)
     if not 3 <= len(text.split()) <= grenze[0] or len(text) > grenze[1]:
         raise ValueError(f"Text hat die falsche Länge ({len(text.split())} Wörter), bitte kürzer")
@@ -87,7 +115,7 @@ def _pruefen(daten, zitat=False):
             "bild": re.sub(r"\s+", " ", str(daten.get("bild", ""))).strip()[:300]}
 
 
-def ki_spruch(cfg, verlauf, chat=None):
+def ki_spruch(cfg, verlauf, chat=None, http=None):
     from . import geschichten
 
     t = cfg["texte"]
@@ -113,7 +141,7 @@ def ki_spruch(cfg, verlauf, chat=None):
             antwort = None
             try:
                 antwort = chat(nachrichten, modell)
-                eintrag = _pruefen(geschichten._json_aus(antwort), zitat)
+                eintrag = _pruefen(geschichten._json_aus(antwort), zitat, http)
             except KitFehler:
                 raise
             except Exception as exc:  # noqa: BLE001 - nochmal bzw. nächstes Modell
