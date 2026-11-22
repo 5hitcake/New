@@ -108,3 +108,22 @@ def test_nacherzaehlung_ohne_bibel_aus_wissen_der_ki():
     assert "Rotkäppchen" in gesehen[0]
     assert "Hänsel und Gretel" in gesehen[1] and "Brüder Grimm" in gesehen[1]
     assert "Nacherzählt nach Brüder Grimm" in reels.geschichten_caption({"geschichten": {"hashtags": []}}, skript)
+
+
+def test_wissen_mit_sachthema_nutzt_wikipedia():
+    from tests.test_inhaltsarten import Wiki
+
+    gesehen = []
+    antworten = iter([json.dumps({"ideen": [{"titel": "Das Rätsel der Mary Celeste", "wikipedia": "Mary Celeste"}]}),
+                      json.dumps({**SKRIPT, "titel": "Mary Celeste"})])
+
+    def chat(n, m):
+        gesehen.append(n[-1]["content"])
+        return next(antworten)
+
+    g = {"quelle": "wissen", "thema": "Seefahrt", "beschreibung": "Fakten über Schiffe", "szenen": 6,
+         "suchbegriffe": [], "text_ki": "cloudflare", "hashtags": []}
+    skript = geschichten.neue_geschichte(g, {}, http=Wiki(), chat=chat)
+    assert "Die Mary Celeste war eine Brigg" in gesehen[1]
+    assert skript["quelle"] == "Mary Celeste"
+    assert "Fakten: Wikipedia (Mary Celeste)" in reels.geschichten_caption({"geschichten": {"hashtags": []}}, skript)

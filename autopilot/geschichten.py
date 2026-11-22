@@ -110,6 +110,11 @@ Thema des Accounts: {thema}
 {beschreibung}"""
 
 QUELLEN_REGELN = {
+    "wissen_text": """
+Das Reel vermittelt Wissen zum angegebenen Thema. WICHTIGSTE REGEL: Alle Fakten, Zahlen und Namen stammen
+aus dem mitgelieferten Wikipedia-Artikel. Nichts dazuerfinden. Wähle die überraschendsten, anschaulichsten
+Fakten aus und erkläre sie einfach. Gib dem Reel einen kurzen "titel".
+""",
     "wissen": """
 Das Reel vermittelt nützliches Wissen zum Thema des Nutzers: Tipps, eine kurze Anleitung, überraschende
 Fakten oder "Mythos und Wahrheit". Nur korrekte, allgemein anerkannte Informationen. Erfinde keine Studien,
@@ -197,7 +202,7 @@ BOGEN = {
 
 def system_prompt(thema, quelle="wikipedia", szenen=6, beschreibung=""):
     zusatz = f"Beschreibung des Accounts: {beschreibung}\n" if beschreibung else ""
-    bogen = BOGEN["wissen"] if quelle == "wissen" else (
+    bogen = BOGEN["wissen"] if quelle.startswith("wissen") else (
         BOGEN["nacherzaehlung"] if quelle.startswith("nacherzaehlung") else BOGEN["geschichte"])
     text = KOPF.format(thema=thema, beschreibung=zusatz) + QUELLEN_REGELN[quelle] + FORMAT + REGELN
     return text.replace("{szenen}", str(szenen)).replace("{bogen}", bogen)
@@ -314,6 +319,8 @@ def skript_schreiben(g, titel, text, chat=None, quelle="wikipedia"):
     hinweis = " Der Text ist englisch: schreibe trotzdem auf DEUTSCH und übersetze genau." if englisch else ""
     if quelle in ("fiktion", "wissen", "nacherzaehlung"):
         nutzer = text
+    elif quelle == "wissen_text":
+        nutzer = f'Thema des Reels: {titel}\n\nWikipedia-Artikel:\n\n{text}'
     elif quelle == "nacherzaehlung_text":
         nutzer = f'Originaltext "{titel}":\n\n{text}'
     elif quelle == "eigene_texte":
@@ -367,7 +374,10 @@ IDEEN = {
                        'JSON: {{"ideen": [{{"titel": "...", "stelle": "..."}}]}}'),
     "wissen": ('Nenne {n} konkrete Themen für je ein kurzes Wissens-Reel, die genau zum Account passen: Tipps, '
                'kleine Anleitungen, überraschende Fakten oder "Mythos und Wahrheit". Konkret, z.B. "3 Fehler beim '
-               'Kartoffeln kochen" statt "Kochen". JSON: {{"ideen": [{{"titel": "..."}}]}}'),
+               'Kartoffeln kochen" statt "Kochen". Geht es um Sachwissen (z.B. Tiere, Geschichte, Natur, Technik, '
+               'Weltraum), trage in "wikipedia" den Titel des DEUTSCHEN Wikipedia-Artikels ein, in dem die Fakten '
+               'stehen (z.B. "Tyrannosaurus"). Bei praktischen Tipps ohne passenden Artikel leer lassen. '
+               'JSON: {{"ideen": [{{"titel": "...", "wikipedia": "Artikeltitel oder leer"}}]}}'),
 }
 
 
@@ -407,7 +417,22 @@ def _bisherige_titel(verlauf, praefix):
             if m.startswith(praefix)]
 
 
-def _wissen(g, verlauf, chat=None, zufall=random):
+def _wissensartikel(titel, http=HTTP):
+    """Wikipedia-Artikel als Faktenquelle für ein Wissens-Reel, oder None."""
+    if not titel or len(titel) > 120:
+        return None
+    try:
+        a = artikel(titel, http)
+        if not a:
+            treffer = suchen(titel, "de", http, random.Random(0))[:1]
+            a = artikel(treffer[0], http) if treffer else None
+    except Exception as exc:  # noqa: BLE001 - dann eben ohne Artikel
+        print(f"  Wikipedia nicht erreichbar ({type(exc).__name__}), schreibe ohne Artikel")
+        return None
+    return a if a and len(a[2]) >= 800 else None
+
+
+def _wissen(g, verlauf, http=HTTP, chat=None, zufall=random):
     bisher = _bisherige_titel(verlauf, "wissen:")
     vorschlaege = ideen(g, "wissen", bisher, chat, zufall=zufall)
     if not vorschlaege:
@@ -416,10 +441,16 @@ def _wissen(g, verlauf, chat=None, zufall=random):
         titel = str(idee["titel"]).strip()[:120]
         if titel in bisher:
             continue
-        skript, grund = skript_schreiben(g, titel, f"Schreibe ein Wissens-Reel zum Thema: {titel}.", chat,
-                                         quelle="wissen")
+        a = _wissensartikel(str(idee.get("wikipedia") or "").strip(), http)
+        if a:  # Sachwissen: Fakten aus Wikipedia statt aus dem Gedächtnis der KI
+            skript, grund = skript_schreiben(g, titel, a[2][:9000], chat, quelle="wissen_text")
+            quelle = a[1]
+        else:
+            skript, grund = skript_schreiben(g, titel, f"Schreibe ein Wissens-Reel zum Thema: {titel}.", chat,
+                                             quelle="wissen")
+            quelle = ""
         if skript:
-            skript.update(quelle_art="wissen", quelle="", titel=titel, merken=[f"wissen:{titel}"])
+            skript.update(quelle_art="wissen", quelle=quelle, titel=titel, merken=[f"wissen:{titel}"])
             print(f"+ {titel}: Skript geschrieben")
             return skript
         print(f"- {titel}: {grund}")
@@ -458,7 +489,7 @@ def _nacherzaehlung(g, verlauf, chat=None, zufall=random):
 def neue_geschichte(g, verlauf, http=HTTP, chat=None, zufall=random):
     """Wählt je nach Einstellung die Quelle."""
     if g.get("quelle") == "wissen":
-        return _wissen(g, verlauf, chat, zufall)
+        return _wissen(g, verlauf, http, chat, zufall)
     if g.get("quelle") == "nacherzaehlung":
         return _nacherzaehlung(g, verlauf, chat, zufall)
     if g.get("quelle") == "fiktion":

@@ -117,6 +117,8 @@ def _herkunft(skript):
             q = f"{q} ({bibel.UEBERSETZUNG})" if bibel.ist_stelle(q) else q
             return HERKUNFT["nacherzaehlung"].format(quelle=q)
         return "Nacherzählt nach der Überlieferung. Bilder KI-generiert."
+    if art == "wissen" and skript.get("quelle"):
+        return f"Fakten: Wikipedia ({skript['quelle']}). Bilder KI-generiert."
     return HERKUNFT.get(art, "").format(titel=skript.get("titel", ""))
 
 
