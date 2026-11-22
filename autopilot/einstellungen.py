@@ -19,7 +19,7 @@ STIMMEN = os.path.join(ROOT, ".stimmen")  # Download-Ordner für die Sprecher-St
 WOCHENTAGE = ["mo", "di", "mi", "do", "fr", "sa", "so"]
 TYPEN = ("bild", "reel", "story")
 INHALTSARTEN = ("zitate", "geschichten", "eigene_medien")
-QUELLEN = ("wikipedia", "fiktion", "eigene_texte")
+QUELLEN = ("wissen", "wikipedia", "nacherzaehlung", "fiktion", "eigene_texte")
 BILDSTILE = ("ki_mit_text", "ki_ohne_text", "text", "eigene_fotos")
 EIGENE_TEXTE = os.path.join(ROOT, "inhalte", "geschichten.txt")
 
@@ -148,12 +148,12 @@ def pruefen(roh):
         raise KitFehler("geschichten → sprechtempo muss zwischen 0.6 und 1.5 liegen.")
     t = roh.get("texte") or {}
     texte_quelle = str(t.get("quelle", "datei")).strip().lower()
-    if texte_quelle not in ("datei", "ki"):
-        raise KitFehler("texte → quelle muss \"datei\" oder \"ki\" sein.")
+    if texte_quelle not in ("datei", "ki", "zitate"):
+        raise KitFehler("texte → quelle muss \"ki\", \"zitate\" oder \"datei\" sein.")
     texte_ki = str(t.get("text_ki", "cloudflare")).strip().lower()
     if texte_ki not in ("cloudflare", "claude"):
         raise KitFehler("texte → text_ki muss \"cloudflare\" oder \"claude\" sein.")
-    if texte_quelle == "ki" and not str(t.get("thema", "")).strip() and not beschreibung:
+    if texte_quelle in ("ki", "zitate") and not str(t.get("thema", "")).strip() and not beschreibung:
         raise KitFehler("Beschreibe deinen Account in einstellungen.yml unter account → beschreibung "
                         "(oder trag bei texte → thema ein Thema ein). Daraus schreibt die KI die Texte.")
     bp = roh.get("bildpost") or {}

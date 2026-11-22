@@ -27,7 +27,7 @@ account:
 # ------------------------------------------------------------
 #  Welche Art von Reels? Genau EINE eintragen (Bild-Posts gibt es bei allen):
 #    zitate         = Text-Reels: dein Text animiert auf Bild oder Farbverlauf
-#    geschichten    = Story-Reels mit KI-Bildern, Sprecher und Untertiteln
+#    geschichten    = Sprecher-Reels: Wissen, Tipps oder Geschichten mit KI-Bildern, Sprecher und Untertiteln
 #    eigene_medien  = Reels aus deinen eigenen Fotos und Videos (Ordner "medien")
 # ------------------------------------------------------------
 inhaltsart: "geschichten"
@@ -37,10 +37,12 @@ inhaltsart: "geschichten"
 # ------------------------------------------------------------
 texte:
   # Woher kommen die Texte für Bild-Posts und Text-Reels?
-  #   "ki"    = eine kostenlose KI schreibt bei jedem Post einen neuen Text passend
-  #             zu deiner Beschreibung (braucht das Cloudflare-Konto, siehe Anleitung)
-  #   "datei" = deine eigenen Texte aus inhalte/posts.csv
-  quelle: "ki"
+  #   "ki"     = eine kostenlose KI schreibt bei jedem Post einen neuen Text passend
+  #              zu deiner Beschreibung (braucht das Cloudflare-Konto, siehe Anleitung)
+  #   "zitate" = echte Zitate mit Quelle (z.B. Bibelverse, Philosophen, Sprichwörter).
+  #              Bibelverse immer im Wortlaut der Lutherbibel 1912, mit Stelle.
+  #   "datei"  = deine eigenen Texte aus inhalte/posts.csv
+  quelle: "zitate"
 
   # Optional: leer lassen = aus deiner Beschreibung abgeleitet
   thema: ""
@@ -123,7 +125,7 @@ design:
 caption:
   # Platzhalter: {text} = der Spruch, {autor} = Autor (falls angegeben),
   # {hashtags} = automatisch ausgewählte Hashtags
-  vorlage: "{text}\n\n{autor}\n•\n\n{hashtags}"
+  vorlage: "{text}\n{autor}\n\n{hashtags}"
   anzahl_hashtags: 7
 
 hashtags:
@@ -150,14 +152,17 @@ geschichten:
   #   z.B. "Wahre Gruselgeschichten und rätselhafte Kriminalfälle"
   thema: ""
 
-  # Woher kommen die Geschichten?
-  #   "wikipedia"    = wahre Geschichten, Fakten aus Wikipedia, mit Quellenangabe
-  #   "fiktion"      = die KI erfindet Geschichten zum Thema (z.B. Grusel, Märchen).
-  #                    In der Caption steht automatisch "Fiktive Geschichte".
-  #   "eigene_texte" = aus deinen eigenen Texten in inhalte/geschichten.txt
-  quelle: "wikipedia"
+  # Worum geht es in den gesprochenen Reels?
+  #   "wissen"         = Tipps, kleine Anleitungen und Fakten zu deinem Thema (passt fast immer)
+  #   "wikipedia"      = wahre Geschichten, Fakten aus Wikipedia, mit Quellenangabe
+  #   "nacherzaehlung" = bekannte Geschichten nacherzählt: Bibel, Sagen, Märchen, Mythen, Fabeln.
+  #                      Bibelgeschichten werden aus dem Originaltext (Lutherbibel 1912) erzählt.
+  #   "fiktion"        = die KI erfindet Geschichten zum Thema (z.B. Grusel).
+  #                      In der Caption steht automatisch "Fiktive Geschichte".
+  #   "eigene_texte"   = aus deinen eigenen Texten in inhalte/geschichten.txt
+  quelle: "nacherzaehlung"
 
-  # Bei "wikipedia": damit sucht der Autopilot passende Artikel (deutsch und englisch).
+  # Optional. Bei "wikipedia": zusätzliche Suchbegriffe (die KI schlägt sonst selbst Artikel vor).
   # Bei "fiktion": Anregungen, aus denen die KI jeweils eine Geschichte erfindet.
   # Je mehr Begriffe, desto mehr Abwechslung. Leer lassen = aus deiner Beschreibung abgeleitet.
   suchbegriffe: []

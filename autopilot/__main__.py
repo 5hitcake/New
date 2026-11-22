@@ -295,7 +295,7 @@ def _cloudflare_ok():
     return False, "Cloudflare lehnt den API-Token ab. Account-ID und Token prüfen (Anleitung: Cloudflare)"
 
 
-NAMEN = {"zitate": "Text-Reels", "geschichten": "Story-Reels", "eigene_medien": "Reels aus eigenen Medien"}
+NAMEN = {"zitate": "Text-Reels", "geschichten": "Sprecher-Reels", "eigene_medien": "Reels aus eigenen Medien"}
 
 
 def pruefen():
@@ -332,8 +332,9 @@ def pruefen():
     braucht_text = cfg is not None and (art == "zitate" or cfg["plan"]["bild"]["aktiv"]
                                          or (art == "eigene_medien" and cfg["eigene_medien"]["text_einblenden"]))
     braucht_cf = False
-    if braucht_text and cfg["texte"]["quelle"] == "ki":
-        ok("Texte: die KI schreibt jeden Tag neue, passend zu deiner Beschreibung")
+    if braucht_text and cfg["texte"]["quelle"] in ("ki", "zitate"):
+        ok("Texte: die KI schreibt jeden Tag neue, passend zu deiner Beschreibung" if cfg["texte"]["quelle"] == "ki"
+           else "Texte: echte Zitate mit Quelle, Bibelverse im Wortlaut der Lutherbibel 1912")
         braucht_cf = True
     elif braucht_text:
         try:
@@ -353,7 +354,9 @@ def pruefen():
             (ok if n else schlecht)(f"inhalte/geschichten.txt: {n} eigene Texte" if n else
                                     "inhalte/geschichten.txt enthält noch keinen Text")
         else:
-            ok({"wikipedia": "Quelle: Wikipedia (wahre Geschichten mit Quellenangabe)",
+            ok({"wissen": "Quelle: Wissen und Tipps zu deinem Thema",
+                "wikipedia": "Quelle: Wikipedia (wahre Geschichten mit Quellenangabe)",
+                "nacherzaehlung": "Quelle: bekannte Erzählungen, nacherzählt (Bibel im Wortlaut der Lutherbibel 1912)",
                 "fiktion": "Quelle: Fiktion (frei erfundene Geschichten, in der Caption gekennzeichnet)"}[quelle])
         braucht_cf = True
         if cfg["geschichten"]["text_ki"] == "claude":
