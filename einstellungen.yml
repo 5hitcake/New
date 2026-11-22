@@ -176,7 +176,7 @@ geschichten:
   szenen: 4
 
   # Sprecher: "thorsten" (deutsche Männerstimme, kostenlos) oder "aus" (nur Musik)
-  sprecher: "thorsten"
+  sprecher: "auto"
   # Sprechtempo: 1.0 = normal, 0.9 = schneller, 1.1 = langsamer
   sprechtempo: 1.0
 
