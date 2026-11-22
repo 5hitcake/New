@@ -1,21 +1,36 @@
 {
   "benutzt": {
     "bild": [
-      "de855f9dbf"
+      "de855f9dbf",
+      "a688bc8e46"
     ],
-    "reel": []
+    "reel": [
+      "37ade85686"
+    ]
   },
   "zuletzt": {
-    "bild": "2026-11-21",
-    "story": "2026-11-21"
+    "bild": "2026-11-22",
+    "story": "2026-11-22",
+    "reel": "2026-11-22"
   },
   "heute_bild": {
-    "datum": "2026-11-21",
-    "id": "de855f9dbf"
+    "datum": "2026-11-22",
+    "id": "a688bc8e46",
+    "eintrag": {
+      "id": "a688bc8e46",
+      "zeile": 12,
+      "text": "Es ist nicht wichtig, wie du dich fühlst. Wichtig ist, was du trotzdem tust.",
+      "autor": "",
+      "kategorie": "Disziplin"
+    },
+    "hintergrund": "verlauf:5"
   },
   "token_erneuert": "2026-11-21",
   "hintergruende": [
     "verlauf:1",
-    "verlauf:1"
+    "verlauf:1",
+    "verlauf:5",
+    "verlauf:3",
+    "verlauf:5"
   ]
 }
