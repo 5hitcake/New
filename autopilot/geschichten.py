@@ -147,7 +147,9 @@ REGELN = """Regeln:
   Erklärungen oder Theorien, Auflösung oder offenes Ende. Kein Fülltext.
   Die LETZTE Szene ist die Wendung: etwas Unerwartetes, das alles davor in neuem Licht zeigt.
   Nur einfache, natürliche deutsche Wörter, die man so auch sagen würde.
-- "frage": kurze Frage an die Zuschauer, höchstens 8 Wörter, endet mit "?".
+- "frage": kurze Frage an die Zuschauer, höchstens 8 Wörter, endet mit "?". Sie bezieht sich auf etwas,
+  das in den Szenen wirklich vorkommt. Alles, was Hook und Frage ankündigen (z.B. ein Schrei, ein Fluch),
+  muss in der Geschichte auch auftauchen.
 - Kurze Sätze zum Vorlesen, Zahlen als Ziffern, keine Emojis. Jeder Satz endet mit . ? oder !
 - Pro Szene genau 1 Schlüsselwort in *Sternchen* (wird farbig hervorgehoben): das wichtigste
   Substantiv oder die Überraschung, kein Adjektiv wie "dunkel" oder "kalt".
@@ -197,9 +199,21 @@ def pruefen(skript, soll=6):
     return p
 
 
+def nur_ein_schluesselwort(t):
+    """Lässt nur das erste *Wort* hervorgehoben, weitere Sternchen fallen weg."""
+    teile = re.split(r"(\*[^*]+\*)", t)
+    gesehen = False
+    for i, teil in enumerate(teile):
+        if teil.startswith("*") and teil.endswith("*") and len(teil) > 2:
+            if gesehen:
+                teile[i] = teil[1:-1]
+            gesehen = True
+    return "".join(teile)
+
+
 def aufraeumen(skript):
     def satz(t):
-        t = re.sub(r"\s+", " ", str(t)).strip()
+        t = nur_ein_schluesselwort(re.sub(r"\s+", " ", str(t)).strip())
         return t if not t or t[-1] in ".?!" else t + "."
     skript["hook"]["text"] = satz(skript["hook"]["text"])
     for s in skript["szenen"]:
