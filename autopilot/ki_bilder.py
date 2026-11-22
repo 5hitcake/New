@@ -46,6 +46,9 @@ def erzeugen(prompt, http=requests, schlafen=time.sleep):
                                      json={"prompt": prompt, "steps": 4}, timeout=180)
                 if resp.ok:
                     return Image.open(io.BytesIO(_bild_aus(resp))).convert("RGB")
+                if "daily free allocation" in resp.text:
+                    print("Bild-KI: Tageskontingent von Cloudflare aufgebraucht, nehme Farbverlauf.")
+                    return None
                 if resp.status_code not in (429, 500, 502, 503, 504):
                     print(f"Bild-KI {modell}: HTTP {resp.status_code}")
                     break

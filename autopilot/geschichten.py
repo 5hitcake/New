@@ -280,6 +280,9 @@ def _cloudflare_chat(nachrichten, modell, http=HTTP):
         raise KitFehler("Cloudflare lehnt den Zugang ab. Prüfe CLOUDFLARE_ACCOUNT_ID und ob der API-Token "
                         "die Berechtigung 'Workers AI' hat.")
     if not resp.ok:
+        from .einstellungen import KONTINGENT_HINWEIS, kontingent_leer
+        if kontingent_leer(resp.text):
+            raise KitFehler(KONTINGENT_HINWEIS)
         raise RuntimeError(f"{modell}: HTTP {resp.status_code} {resp.text[:200]}")
     ergebnis = resp.json().get("result", {})
     aus = ergebnis.get("response")

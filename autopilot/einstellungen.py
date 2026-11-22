@@ -234,3 +234,12 @@ def cloudflare_hinweis():
     return (f"Auf GitHub fehlt das Secret {' und '.join(fehlt)} (oder es ist leer). Name genau so schreiben, "
             "ohne Leerzeichen, und den Wert einfügen. Anleitung: Rubrik 07 Cloudflare.")
 
+
+
+KONTINGENT_HINWEIS = ("Das kostenlose Tageskontingent der Cloudflare-KI ist für heute aufgebraucht (meist durch viele "
+                      "Testläufe am selben Tag). Es wird um 0 Uhr UTC zurückgesetzt (1 Uhr deutscher Zeit). "
+                      "Der Autopilot versucht es danach automatisch erneut.")
+
+
+def kontingent_leer(antwort_text):
+    return "daily free allocation" in (antwort_text or "")
