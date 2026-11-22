@@ -11,6 +11,7 @@ import time
 import requests
 from PIL import Image
 
+OHNE_TEXT = "no text, no letters, no words, no signs, no writing, no logos, blank surfaces"
 MODELLE = ["@cf/black-forest-labs/flux-1-schnell", "@cf/black-forest-labs/flux-2-klein-4b"]
 BREITE, HOEHE = 768, 1344
 
@@ -30,6 +31,8 @@ def erzeugen(prompt, http=requests, schlafen=time.sleep):
     token = os.environ.get("CLOUDFLARE_API_TOKEN", "").strip()
     if not konto or not token:
         return None
+    if "no text" not in prompt:
+        prompt = f"{prompt}, {OHNE_TEXT}"
     for modell in MODELLE:
         url = f"https://api.cloudflare.com/client/v4/accounts/{konto}/ai/run/{modell}"
         for versuch in range(3):

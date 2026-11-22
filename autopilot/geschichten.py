@@ -141,13 +141,16 @@ Antworte NUR mit JSON in genau diesem Format:
 """
 
 REGELN = """Regeln:
-- hook.text: 1 packender Satz, höchstens 14 Wörter. Beginne mit einem konkreten, überraschenden
-  Detail, keine Zusammenfassung.
+- hook.text: 1 packender Satz, höchstens 14 Wörter, aus DERSELBEN Geschichte (gleicher Ort, gleiche
+  Figur). Am besten ein Detail aus der Wendung, das neugierig macht, ohne sie zu verraten.
 - {szenen} Szenen mit je 12 bis 18 Wörtern, jede Szene ein ganzer, bildhafter Satz. Bogen: Ort und Zeit, Ereignis, überraschendes Detail,
   Erklärungen oder Theorien, Auflösung oder offenes Ende. Kein Fülltext.
+  Die LETZTE Szene ist die Wendung: etwas Unerwartetes, das alles davor in neuem Licht zeigt.
+  Nur einfache, natürliche deutsche Wörter, die man so auch sagen würde.
 - "frage": kurze Frage an die Zuschauer, höchstens 8 Wörter, endet mit "?".
 - Kurze Sätze zum Vorlesen, Zahlen als Ziffern, keine Emojis. Jeder Satz endet mit . ? oder !
-- Pro Szene höchstens 1 bis 2 wichtige Wörter in *Sternchen* (werden farbig hervorgehoben).
+- Pro Szene genau 1 Schlüsselwort in *Sternchen* (wird farbig hervorgehoben): das wichtigste
+  Substantiv oder die Überraschung, kein Adjektiv wie "dunkel" oder "kalt".
 - Respektvoll, keine blutigen Details.
 - "bild": Bildbeschreibung AUF ENGLISCH, 10 bis 25 Wörter: Ort, Stimmung, Licht, Gegenstände.
   Keine erkennbaren realen Personen (lieber Silhouetten), kein Text im Bild, kein Blut.
