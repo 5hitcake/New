@@ -19,7 +19,7 @@ from datetime import datetime
 from . import design, inhalte, instagram, profil, reel, reels, sprueche
 from .einstellungen import AUSGABE, ROOT, VERLAUF, KitFehler, laden
 
-AKTIONEN = ("automatisch", "setup-pruefen", "vorschau", "stimmproben", "bildstile", "jetzt-posten", "jetzt-story-posten", "token-erneuern")
+AKTIONEN = ("automatisch", "setup-pruefen", "vorschau", "stimmproben", "bildstile", "kit-update", "jetzt-posten", "jetzt-story-posten", "token-erneuern")
 
 
 def _zusammenfassung(text):
@@ -496,7 +496,32 @@ def verlauf_sichern():
 
 # ---------------------------------------------------------------- lauf
 
+def kit_aktualisieren():
+    from . import kit_update
+
+    alt, neu, workflow_neu = kit_update.aktualisieren()
+    if os.environ.get("GITHUB_ACTIONS"):
+        for _ in range(3):
+            if _git("pull", "-q", "--rebase", check=False).returncode == 0 and _git("push", "-q", check=False).returncode == 0:
+                break
+            time.sleep(5)
+        else:
+            raise KitFehler("Das Update ließ sich nicht speichern (push fehlgeschlagen). Bitte kit-update erneut starten.")
+    zeilen = [f"Kit aktualisiert: Version {alt} → {neu}. Deine Einstellungen und Inhalte sind unverändert.",
+              "Neue Optionen stehen in hilfe/einstellungen-vorlage.yml (ohne Eintrag gelten Standardwerte).",
+              "Als Nächstes: Aktion setup-pruefen starten."]
+    if workflow_neu:
+        zeilen.insert(1, "WICHTIG: Auch die Workflow-Datei hat sich geändert. Öffne hilfe/autopilot.yml, kopiere den "
+                         "ganzen Inhalt und ersetze damit .github/workflows/autopilot.yml (Stift → alles markieren → "
+                         "einfügen → Commit changes). Das darf GitHub aus Sicherheitsgründen nicht automatisch tun.")
+    print("\n".join(zeilen))
+    _zusammenfassung("## Kit-Update\n\n" + "\n\n".join(zeilen))
+    return 0
+
+
 def lauf(aktion, bereitstellen=None):
+    if aktion == "kit-update":
+        return kit_aktualisieren()
     if aktion == "setup-pruefen":
         ergebnis = pruefen()
         verlauf_sichern()

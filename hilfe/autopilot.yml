@@ -11,7 +11,7 @@ on:
         description: "Was soll passieren?"
         type: choice
         default: setup-pruefen
-        options: [setup-pruefen, vorschau, stimmproben, bildstile, jetzt-posten, jetzt-story-posten, token-erneuern, automatisch]
+        options: [setup-pruefen, vorschau, stimmproben, bildstile, kit-update, jetzt-posten, jetzt-story-posten, token-erneuern, automatisch]
 
 permissions:
   contents: write
