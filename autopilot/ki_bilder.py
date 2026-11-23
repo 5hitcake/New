@@ -11,6 +11,9 @@ import time
 import requests
 from PIL import Image
 
+# Wichtig: Diese Bild-KIs kennen keine Verneinung. Was im Text vorkommt ("no blood"), malen sie eher hinein.
+# Deshalb nur beschreiben, was man sehen will.
+
 # Bildstile zur Auswahl (account → bildstil). Cloudflare hat keine fertigen Stil-Voreinstellungen,
 # der Stil wird über die Bildbeschreibung gesteuert. Bewusst ohne Namen von Studios oder Künstlern.
 STILE = {
@@ -23,7 +26,8 @@ STILE = {
     "aquarell": ("Aquarell", "watercolor painting, soft washes, visible paper texture, delicate colors"),
     "oelgemaelde": ("Ölgemälde", "classical oil painting, visible brush strokes, rich deep colors, museum quality"),
     "skizze": ("Bleistiftskizze", "detailed pencil sketch, graphite on paper, cross-hatching, monochrome"),
-    "pixel": ("Pixel-Art", "pixel art, 16-bit retro video game style, limited palette, crisp pixels"),
+    "pixel": ("Pixel-Art", "8-bit pixel art, large clearly visible square pixels, low resolution retro video game "
+                           "scene, limited color palette"),
     "flach": ("Flache Illustration", "flat vector illustration, minimal clean shapes, limited color palette, modern"),
     "vintage": ("Vintage-Foto", "vintage 1970s photograph, film grain, faded warm colors, light leaks"),
     "duester": ("Dunkel und düster", "dark moody photograph, low key lighting, fog, desaturated cold colors"),
@@ -31,7 +35,7 @@ STILE = {
 }
 STIL_PROBE_MOTIV = "a small cozy house by a lake with mountains behind it, a cat sitting on the porch, evening"
 
-OHNE_TEXT = "no text, no letters, no words, no signs, no writing, no logos, blank surfaces, no blood, no red stains"
+OHNE_TEXT = "clean composition, plain unmarked surfaces, no text"
 MODELLE = ["@cf/black-forest-labs/flux-1-schnell", "@cf/black-forest-labs/flux-2-klein-4b"]
 BREITE, HOEHE = 768, 1344
 
