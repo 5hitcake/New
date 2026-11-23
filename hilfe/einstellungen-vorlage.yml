@@ -1,0 +1,227 @@
+# ============================================================
+#  Insta-Autopilot – Einstellungen
+#  Hier stellst du alles ein. Zeilen mit # sind nur Erklärungen.
+#  Wichtig: Einrückung (Leerzeichen am Zeilenanfang) nicht verändern!
+# ============================================================
+
+# Dein Instagram-Name OHNE @ (Sicherheitscheck: es wird nur auf
+# diesen Account gepostet, nie aus Versehen auf einen anderen).
+instagram_name: "dein_account_name"
+
+# Wird unten auf jedes Bild geschrieben. Leer lassen ("") = kein Name im Bild.
+name_im_bild: "@dein_account_name"
+
+# Deine Instagram-Konto-ID: die lange Zahl (beginnt meist mit 1784) unter deinem
+# Kontonamen im Meta-Dashboard bei "Zugriffstokens generieren". Nötig bei Tokens,
+# die mit EAA beginnen (Standard seit 2026). Bei älteren IGAA-Tokens leer lassen.
+instagram_konto_id: ""
+
+# ------------------------------------------------------------
+#  Dein Account in eigenen Worten (das Wichtigste!)
+#  Daraus leitet die KI Thema, Ton, Bildstil und Hashtags ab. 3 bis 5 Sätze:
+#  Worum geht es? Für wen? Welcher Ton? Was soll es NICHT geben?
+# ------------------------------------------------------------
+account:
+  beschreibung: ""
+
+  # Look aller KI-Bilder (Bild-Posts und Reels). Beispiele ansehen: Aktion "bildstile" starten.
+  #   "auto" = passend zu deiner Beschreibung
+  #   "foto", "kino", "anime", "comic", "3d", "aquarell", "oelgemaelde", "skizze",
+  #   "pixel", "flach", "vintage", "duester", "fantasy"
+  bildstil: "auto"
+
+# ------------------------------------------------------------
+#  Welche Art von Reels? Genau EINE eintragen (Bild-Posts gibt es bei allen):
+#    zitate         = Text-Reels: dein Text animiert auf Bild oder Farbverlauf
+#    geschichten    = Sprecher-Reels: Wissen, Tipps oder Geschichten mit KI-Bildern, Sprecher und Untertiteln
+#    eigene_medien  = Reels aus deinen eigenen Fotos und Videos (Ordner "medien")
+# ------------------------------------------------------------
+inhaltsart: "zitate"
+
+# ------------------------------------------------------------
+#  Texte (für Bild-Posts, Text-Reels und den Text auf Medien-Reels)
+# ------------------------------------------------------------
+texte:
+  # Woher kommen die Texte für Bild-Posts und Text-Reels?
+  #   "ki"     = eine kostenlose KI schreibt bei jedem Post einen neuen Text passend
+  #              zu deiner Beschreibung (braucht das Cloudflare-Konto, siehe Anleitung)
+  #   "zitate" = echte Zitate mit Quelle (z.B. Bibelverse, Dichter, Philosophen, Sprichwörter).
+  #              Bibelverse im Wortlaut der Lutherbibel 1912, alle anderen auf Wikiquote geprüft.
+  #   "datei"  = deine eigenen Texte aus inhalte/posts.csv
+  quelle: "ki"
+
+  # Optional: leer lassen = aus deiner Beschreibung abgeleitet
+  thema: ""
+  stil: ""
+
+  # "cloudflare" (kostenlos) oder "claude" (optional, kostenpflichtig)
+  text_ki: "cloudflare"
+
+# ------------------------------------------------------------
+#  Bild-Posts
+# ------------------------------------------------------------
+bildpost:
+  # Wie sehen Bild-Posts aus?
+  #   "ki_mit_text"  = KI-Bild passend zum Text, der Text steht groß darauf
+  #   "ki_ohne_text" = nur das KI-Bild, der Text steht in der Caption
+  #   "text"         = Text auf Farbverlauf (oder auf deinen Fotos im Ordner hintergruende)
+  #   "eigene_fotos" = deine Fotos aus dem Ordner medien, Text darauf
+  stil: "ki_mit_text"
+  # Optional, für Profis: eigener Bildstil auf Englisch (überschreibt account → bildstil)
+  bildstil: ""
+  motiv: ""
+
+# ------------------------------------------------------------
+#  Zeitplan
+# ------------------------------------------------------------
+zeitplan:
+  # Deine Zeitzone, z.B. Europe/Berlin, Europe/Vienna, Europe/Zurich
+  zeitzone: "Europe/Berlin"
+
+  # Bild-Post im Feed. Bild und Reel können sich abwechseln (verschiedene Tage)
+  # oder am selben Tag beide kommen (verschiedene Uhrzeiten).
+  bild:
+    aktiv: true
+    tage: [mo, di, mi, do, fr, sa, so]
+    uhrzeit: "18:00"
+
+  # Reel
+  reel:
+    aktiv: true
+    tage: [so]
+    uhrzeit: "17:00"
+
+  # Story: postet den Haupt-Post des Tages zusätzlich als Story
+  # (das Bild, wenn heute eins kommt, sonst das Titelbild des Reels)
+  #   bei: "beidem" = zu jedem Post, "bild" = nur an Bild-Tagen, "reel" = nur an Reel-Tagen
+  story:
+    aktiv: true
+    bei: "beidem"
+
+# Reihenfolge der Inhalte aus inhalte/posts.csv:
+#   zufall          = zufällig, aber keine Wiederholung bis alle dran waren
+#   der_reihe_nach  = von oben nach unten
+reihenfolge: "zufall"
+
+# ------------------------------------------------------------
+#  Design
+# ------------------------------------------------------------
+design:
+  # Schrift für den Text: Poppins-Bold, Poppins-SemiBold oder Poppins-Regular
+  # (eigene .ttf-Datei in den Ordner "schriften" legen und hier den Namen eintragen)
+  schrift: "Poppins-Bold"
+  textfarbe: "#FFFFFF"
+
+  # Wie stark eigene Hintergrundfotos abgedunkelt werden (0 = gar nicht, 100 = schwarz)
+  abdunkeln: 40
+
+  # Liegen KEINE Fotos im Ordner "hintergruende", erzeugt der Autopilot
+  # Farbverläufe aus diesen Farbpaaren (von oben nach unten).
+  farbverlaeufe:
+    - ["#0F2027", "#2C5364"]
+    - ["#232526", "#414345"]
+    - ["#42275A", "#734B6D"]
+    - ["#1D2B64", "#5C4B51"]
+    - ["#134E5E", "#2B6B4F"]
+    - ["#3A1C71", "#B2475D"]
+
+# ------------------------------------------------------------
+#  Bildunterschrift (Caption) & Hashtags
+# ------------------------------------------------------------
+caption:
+  # Platzhalter: {text} = der Spruch, {autor} = Autor (falls angegeben),
+  # {hashtags} = automatisch ausgewählte Hashtags
+  vorlage: "{text}\n{autor}\n\n{hashtags}"
+  anzahl_hashtags: 7
+
+hashtags:
+  # Aus dieser Liste werden immer ein paar genommen. Leer lassen = aus deiner Beschreibung abgeleitet.
+  allgemein: []
+  # Optional, nur für eigene Texte in posts.csv: Hashtags je Kategorie (Spalte "kategorie"),
+  # z.B.  Training: ["#training", "#workout"]
+  nach_kategorie: {}
+
+# ------------------------------------------------------------
+#  Reel
+# ------------------------------------------------------------
+reel:
+  # Lautstärke der Musik aus dem Ordner "musik" (0.0 bis 1.0)
+  musik_lautstaerke: 0.3
+  # Text-Reels: so viele Sekunden mindestens (0 = automatisch nach Textlänge, 6 bis 14 s)
+  mindestdauer: 0
+
+# ------------------------------------------------------------
+#  Nur für inhaltsart "geschichten"
+# ------------------------------------------------------------
+geschichten:
+  # Optional: Thema in einem Satz. Leer lassen = aus deiner Beschreibung abgeleitet.
+  #   z.B. "Wahre Gruselgeschichten und rätselhafte Kriminalfälle"
+  thema: ""
+
+  # Worum geht es in den gesprochenen Reels?
+  #   "wissen"         = Tipps, Anleitungen und Fakten zu deinem Thema (passt fast immer).
+  #                      Bei Sachthemen (Tiere, Natur, Geschichte …) Fakten aus Wikipedia,
+  #                      bei Reisezielen aus dem Reiseführer Wikivoyage.
+  #   "wikipedia"      = wahre Geschichten, Fakten aus Wikipedia, mit Quellenangabe
+  #   "nacherzaehlung" = bekannte Geschichten nacherzählt: Bibel, Sagen, Märchen, Mythen, Fabeln.
+  #                      Wo möglich aus dem Originaltext (Lutherbibel 1912, Märchen und Sagen von Wikisource).
+  #   "fiktion"        = die KI erfindet Geschichten zum Thema (z.B. Grusel).
+  #                      In der Caption steht automatisch "Fiktive Geschichte".
+  #   "eigene_texte"   = aus deinen eigenen Texten in inhalte/geschichten.txt
+  quelle: "wissen"
+
+  # Optional. Bei "wikipedia": zusätzliche Suchbegriffe (die KI schlägt sonst selbst Artikel vor).
+  # Bei "fiktion": Anregungen, aus denen die KI jeweils eine Geschichte erfindet.
+  # Je mehr Begriffe, desto mehr Abwechslung. Leer lassen = aus deiner Beschreibung abgeleitet.
+  suchbegriffe: []
+  suchbegriffe_englisch: []
+
+  # Nur bei "wikipedia", optional: Artikel, die zuerst drankommen (genauer Titel aus Wikipedia)
+  startartikel: []
+
+  # Optional, für Profis: eigener Bildstil auf Englisch (überschreibt account → bildstil)
+  bildstil: ""
+
+  # Farbe für hervorgehobene Wörter im Untertitel
+  akzentfarbe: "#F5B700"
+
+  # Klang des Sprechers: "auto" (passend zum Ton deiner Beschreibung), "neutral",
+  # "düster" (tiefer, langsamer, mit Hall, ideal für Grusel) oder "ruhig"
+  stimmung: "auto"
+
+  # Anzahl Szenen pro Geschichte: 4 = ca. 30 s, 6 = ca. 45 s, 9 = ca. 65 s
+  szenen: 6
+
+  # Sprecher (alle kostenlos, deutsche Männerstimmen). Anhören: Aktion "stimmproben" starten.
+  #   "auto"               = "killian" (empfohlen)
+  #   "killian"            sehr natürlich, bei Grusel tief mit Hall (braucht Internet, sonst Thorsten)
+  #   "conrad"             natürlich, etwas heller
+  #   "thorsten"           klar und deutlich
+  #   "thorsten_ruhig"     weicher, gelassener
+  #   "thorsten_flüstern"  geflüstert, sehr unheimlich
+  #   "thorsten_müde"      langsam, schwer, leise
+  #   "karlsson"           andere, tiefere Stimme
+  #   "aus"                kein Sprecher, nur Musik
+  sprecher: "auto"
+  # Sprechtempo: 1.0 = normal, 0.9 = schneller, 1.1 = langsamer
+  sprechtempo: 1.0
+
+  # Text-KI: "cloudflare" (kostenlos) oder "claude" (optional, kostenpflichtig,
+  # braucht das Secret ANTHROPIC_API_KEY)
+  text_ki: "cloudflare"
+
+  # Feste Hashtags für jedes Reel (dazu kommen 2-3 passende zur Geschichte).
+  # Leer lassen = aus deiner Beschreibung abgeleitet.
+  hashtags: []
+
+# ------------------------------------------------------------
+#  Nur für inhaltsart "eigene_medien"
+# ------------------------------------------------------------
+eigene_medien:
+  # So viele Fotos/Videos aus dem Ordner "medien" kommen in ein Reel
+  pro_reel: 4
+  # So lange ist jedes Foto/Video zu sehen (Sekunden)
+  sekunden_pro_clip: 2.5
+  # Einen Spruch ins Reel schreiben? (true/false). Woher er kommt, steht oben bei "texte".
+  # Bei false entsteht die Caption nur aus den Hashtags.
+  text_einblenden: true

@@ -5,7 +5,7 @@ Sprüche als Bild/Story/Reel, KI-Story-Reels mit Sprecher oder Reels aus deinen 
 Läuft kostenlos auf GitHub, dein Computer muss nicht an sein. Gepostet wird über die
 offizielle Instagram-Schnittstelle, ohne Login-Bot.
 
-**Die komplette Schritt-für-Schritt-Anleitung liegt bei deinem Kauf bei.**
+**Schritt-für-Schritt-Einrichtung (Handy und PC):** https://claude.ai/artifact/GLU2SbSz1uYnk8syhFvss1
 
 ## Was du später anpasst
 
@@ -28,14 +28,6 @@ Reiter **Actions** → **Instagram Autopilot** → **Run workflow** → Aktion w
 - `jetzt-posten`: postet sofort den Haupt-Post (und die Story, falls aktiv)
 - `jetzt-story-posten`: postet nur die Story
 - `token-erneuern`: verlängert den Instagram-Zugang von Hand
-
-## Für Entwickler
-
-```
-pip install -r requirements.txt pytest
-python -m pytest
-python -m autopilot vorschau   # Ergebnis in ausgabe/
-```
 
 Schriftart Poppins: SIL Open Font License, siehe `schriften/OFL.txt`.
 Sprecher-Stimme „Thorsten“ (Thorsten Müller, Piper TTS): Datensatz CC0. Piper wird beim Lauf
