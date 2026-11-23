@@ -26,8 +26,8 @@ STILE = {
     "aquarell": ("Aquarell", "watercolor painting, soft washes, visible paper texture, delicate colors"),
     "oelgemaelde": ("Ölgemälde", "classical oil painting, visible brush strokes, rich deep colors, museum quality"),
     "skizze": ("Bleistiftskizze", "detailed pencil sketch, graphite on paper, cross-hatching, monochrome"),
-    "pixel": ("Pixel-Art", "8-bit pixel art, large clearly visible square pixels, low resolution retro video game "
-                           "scene, limited color palette"),
+    "pixel": ("Pixel-Art", ("8-bit pixel art, large clearly visible square pixels, low resolution retro video game "
+                            "scene, limited color palette")),
     "flach": ("Flache Illustration", "flat vector illustration, minimal clean shapes, limited color palette, modern"),
     "vintage": ("Vintage-Foto", "vintage 1970s photograph, film grain, faded warm colors, light leaks"),
     "duester": ("Dunkel und düster", "dark moody photograph, low key lighting, fog, desaturated cold colors"),

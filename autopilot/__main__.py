@@ -127,7 +127,7 @@ def _zitat_fuer_story(cfg, verlauf, eintraege):
     bild = _lesen("bild")
     if bild and bild.get("eintrag"):
         return bild["eintrag"], bild["hintergrund"] if _hg_gueltig(bild["hintergrund"]) else None
-    heute = verlauf["heute_bild"]
+    heute = verlauf.get("heute_bild") or {}
     if heute.get("datum") == _jetzt(cfg).date().isoformat():
         if heute.get("eintrag"):
             hg = heute.get("hintergrund")
