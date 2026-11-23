@@ -2,7 +2,7 @@
 
 So geht's: neue Kit-ZIP ins Repository hochladen (Add file → Upload files), dann die Aktion
 "kit-update" starten. Ersetzt wird nur der Programmteil. Unverändert bleiben:
-einstellungen.yml, inhalte/, medien/, hintergruende/, deine Musik und der Verlauf.
+einstellungen.yml, inhalte/, medien/, hintergruende/, deine Musik und der Verlauf (daten/verlauf.json).
 """
 import filecmp
 import os
@@ -15,7 +15,10 @@ from . import VERSION
 from .einstellungen import ROOT, KitFehler
 
 # Programmteile, die bei einem Update komplett ersetzt werden
-ORDNER = ("autopilot", "daten", "schriften", "hilfe")
+ORDNER = ("autopilot", "schriften", "hilfe")
+# Ordner mit Programm- UND Nutzerdaten (z.B. daten/verlauf.json): neue Dateien kommen dazu, nichts wird gelöscht
+ERGAENZEN = ("daten",)
+NIE_UEBERSCHREIBEN = ("daten/verlauf.json",)
 DATEIEN = ("requirements.txt", "pyproject.toml", "README.md", "LIZENZ.md", ".gitignore")
 # Nur diese Erklärdateien werden in deinen Ordnern aktualisiert, nie deine eigenen Dateien
 ERKLAERUNGEN = ("musik/LIESMICH.txt", "musik/duester/LIESMICH.txt", "musik/ruhig/LIESMICH.txt",
@@ -69,6 +72,14 @@ def aktualisieren(root=ROOT, git=None):
         if os.path.isdir(os.path.join(quelle, ordner)):
             shutil.rmtree(os.path.join(root, ordner), ignore_errors=True)
             shutil.copytree(os.path.join(quelle, ordner), os.path.join(root, ordner))
+    for ordner in ERGAENZEN:
+        for pfad, _, dateien in os.walk(os.path.join(quelle, ordner)):
+            for d in dateien:
+                rel = os.path.relpath(os.path.join(pfad, d), quelle)
+                if rel.replace(os.sep, "/") in NIE_UEBERSCHREIBEN and os.path.exists(os.path.join(root, rel)):
+                    continue
+                os.makedirs(os.path.dirname(os.path.join(root, rel)), exist_ok=True)
+                shutil.copy2(os.path.join(pfad, d), os.path.join(root, rel))
     for datei in DATEIEN + ERKLAERUNGEN:
         if os.path.exists(os.path.join(quelle, datei)):
             os.makedirs(os.path.dirname(os.path.join(root, datei)) or root, exist_ok=True)
@@ -87,7 +98,7 @@ def aktualisieren(root=ROOT, git=None):
     git("rm", "-q", "--ignore-unmatch", name)
     if os.path.exists(os.path.join(root, name)):
         os.remove(os.path.join(root, name))
-    git("add", "-A", *[o for o in ORDNER + DATEIEN if os.path.exists(os.path.join(root, o))
+    git("add", "-A", *[o for o in ORDNER + ERGAENZEN + DATEIEN if os.path.exists(os.path.join(root, o))
                          or _war_im_repo(git, o)])
     for d in ERKLAERUNGEN:
         if os.path.exists(os.path.join(root, d)):

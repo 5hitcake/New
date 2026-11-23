@@ -23,6 +23,8 @@ def _repo(tmp_path):
     _schreiben(str(r / "inhalte/posts.csv"), "text\nmein Spruch\n")
     _schreiben(str(r / "musik/mein_song.mp3"), "musik")
     _schreiben(str(r / "musik/LIESMICH.txt"), "alt")
+    _schreiben(str(r / "daten/verlauf.json"), '{"mein": "verlauf"}')
+    _schreiben(str(r / "daten/luther1912.json.gz"), "alt")
     _schreiben(str(r / ".github/workflows/autopilot.yml"), "workflow alt")
     subprocess.run(["git", "init", "-q", str(r)], check=True)
     git = lambda *a: subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", *a], cwd=r,
@@ -40,6 +42,8 @@ def _zip(pfad, workflow="workflow alt"):
         z.writestr("insta-autopilot/inhalte/posts.csv", "text\nVorlage\n")
         z.writestr("insta-autopilot/musik/LIESMICH.txt", "neu")
         z.writestr("insta-autopilot/requirements.txt", "pillow\n")
+        z.writestr("insta-autopilot/daten/luther1912.json.gz", "neu")
+        z.writestr("insta-autopilot/daten/verlauf.json", "{}")
         z.writestr("insta-autopilot/.github/workflows/autopilot.yml", workflow)
 
 
@@ -53,6 +57,8 @@ def test_update_ersetzt_nur_programm(tmp_path):
     assert (r / "autopilot/__main__.py").read_text() == "neu"
     assert not (r / "autopilot/veraltet.py").exists()
     assert (r / "einstellungen.yml").read_text() == "instagram_name: meins\n"
+    assert (r / "daten/verlauf.json").read_text() == '{"mein": "verlauf"}'  # Verlauf bleibt!
+    assert (r / "daten/luther1912.json.gz").read_text() == "neu"
     assert "mein Spruch" in (r / "inhalte/posts.csv").read_text()
     assert (r / "musik/mein_song.mp3").exists() and (r / "musik/LIESMICH.txt").read_text() == "neu"
     assert "neue_option" in (r / "hilfe/einstellungen-vorlage.yml").read_text()
