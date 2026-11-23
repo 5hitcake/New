@@ -52,21 +52,21 @@ zeitplan:
 
   # Tages-Bild im Feed (nur bei inhaltsart "zitate")
   bild:
-    aktiv: true
+    aktiv: false
     tage: [mo, di, mi, do, fr, sa, so]
     uhrzeit: "18:00"
 
   # Reel. Bei "geschichten" und "eigene_medien" ist das der Haupt-Post,
   # dann z.B. tage: [mo, di, mi, do, fr, sa, so]
   reel:
-    aktiv: true
+    aktiv: false
     tage: [so]
     uhrzeit: "17:00"
 
   # Story: postet den Haupt-Post des Tages zusätzlich als Story
   # (bei "zitate" das Bild, sonst das Titelbild des Reels)
   story:
-    aktiv: true
+    aktiv: false
 
 # Reihenfolge der Inhalte aus inhalte/posts.csv:
 #   zufall          = zufällig, aber keine Wiederholung bis alle dran waren
