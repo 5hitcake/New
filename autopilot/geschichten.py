@@ -172,7 +172,7 @@ Antworte NUR mit JSON in genau diesem Format:
 """
 
 REGELN = """Regeln:
-- hook.text: 1 packender Satz, höchstens 14 Wörter, aus DERSELBEN Geschichte (gleicher Ort, gleiche
+- hook.text: 1 packender, ganzer Satz mit 6 bis 14 Wörtern, aus DERSELBEN Geschichte (gleicher Ort, gleiche
   Figur). Am besten ein Detail aus der Wendung, das neugierig macht, ohne sie zu verraten.
 - {szenen} Szenen mit je 12 bis 18 Wörtern, jede Szene ein ganzer, bildhafter Satz. {bogen}
   Kein Fülltext. Nur einfache, natürliche deutsche Wörter, die man so auch sagen würde.
@@ -228,6 +228,8 @@ def pruefen(skript, soll=6):
         p.append("hook braucht text und bild")
     elif _woerter(hook["text"]) > 16:
         p.append("hook ist zu lang (max. 14 Wörter)")
+    elif _woerter(hook["text"]) < 5:
+        p.append("hook ist zu kurz: ein ganzer, neugierig machender Satz mit 6 bis 14 Wörtern")
     szenen = skript.get("szenen") or []
     if not max(3, soll - 1) <= len(szenen) <= soll + 2:
         p.append(f"es müssen {soll} Szenen sein, nicht {len(szenen)}")

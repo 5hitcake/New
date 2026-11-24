@@ -37,13 +37,16 @@ Thema: {thema}
 Ton: {stil}
 
 Regeln:
+- Das Zitat muss genau zum Thema und Ton des Accounts passen. Bibelverse NUR, wenn es im Account um
+  Glauben, Bibel oder Christentum geht. Sonst Zitate von Dichtern, Denkern, Schriftstellern, Forschern
+  oder Sprichwörter, die zum Thema passen.
 - Nur echte, sicher belegte Texte. Nichts erfinden, nichts umformulieren, keine Zitate zuschreiben, bei
   denen du unsicher bist.
 - Bibelverse: trage in "stelle" die genaue Stelle ein (z.B. "Psalm 23,1", "Römer 8,28", "Jesaja 41,10"),
-  höchstens 2 Verse. Der Wortlaut wird automatisch aus der Lutherbibel 1912 übernommen.
+  am besten 1 Vers, höchstens 2. Der Wortlaut wird automatisch aus der Lutherbibel 1912 übernommen.
 - Andere Zitate: nur von Personen, die vor mehr als 70 Jahren gestorben sind, oder bekannte Sprichwörter.
   Name in "autor" (bei Sprichwörtern: "Sprichwort"), Text in der bekannten deutschen Fassung.
-- Höchstens 30 Wörter. Wähle Texte, die allein, ohne Zusammenhang, verständlich und berührend sind.
+- Höchstens 25 Wörter, kurze Zitate wirken auf Bildern am besten. Wähle Texte, die allein, ohne Zusammenhang, verständlich und berührend sind.
 - Abwechslungsreich, nicht ähnlich zu den bisherigen.
 
 Antworte NUR mit JSON: {{"text": "...", "stelle": "Bibelstelle oder leer", "autor": "Name oder leer",
@@ -100,7 +103,7 @@ def _pruefen(daten, zitat=False, http=None):
                 raise ValueError("autor fehlt (Name oder 'Sprichwort')")
             text, autor = _wikiquote(text, autor, http)
             text = text.strip().strip('"„“').strip()
-    grenze = (34, 230) if zitat else (26, 170)
+    grenze = (30, 200) if zitat else (26, 170)
     if not 3 <= len(text.split()) <= grenze[0] or len(text) > grenze[1]:
         raise ValueError(f"Text hat die falsche Länge ({len(text.split())} Wörter), bitte kürzer")
     if "#" in text:
