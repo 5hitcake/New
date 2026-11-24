@@ -97,7 +97,9 @@ def belegte_zitate(autor, http=None):
             continue
         if re.match(r"^(-|–|—)?\s*(Quelle|Original|aus:|in:|zitiert|Brief|Vers|S\. |Seite|Kapitel)", z, re.IGNORECASE):
             continue
-        z = z.strip("„“\"").strip()
+        # Quellenangabe hinter dem Zitat abschneiden: „Zitat." - Werk, S. 12
+        m = re.match(r'^[„"»‚]?(.+?[.!?…]?)[“"«‘]\s*(?:[-–—(\[].*)?$', z)
+        z = (m.group(1) if m else z).strip("„“\"»«").strip()
         if len(z.split()) >= 4 and not z.endswith(":"):
             zitate.append(z)
     return titel, zitate

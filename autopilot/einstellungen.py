@@ -148,12 +148,12 @@ def pruefen(roh):
         raise KitFehler("geschichten → sprechtempo muss zwischen 0.6 und 1.5 liegen.")
     t = roh.get("texte") or {}
     texte_quelle = str(t.get("quelle", "datei")).strip().lower()
-    if texte_quelle not in ("datei", "ki", "zitate"):
-        raise KitFehler("texte → quelle muss \"ki\", \"zitate\" oder \"datei\" sein.")
+    if texte_quelle not in ("datei", "ki", "zitate", "fakten"):
+        raise KitFehler("texte → quelle muss \"ki\", \"fakten\", \"zitate\" oder \"datei\" sein.")
     texte_ki = str(t.get("text_ki", "cloudflare")).strip().lower()
     if texte_ki not in ("cloudflare", "claude"):
         raise KitFehler("texte → text_ki muss \"cloudflare\" oder \"claude\" sein.")
-    if texte_quelle in ("ki", "zitate") and not str(t.get("thema", "")).strip() and not beschreibung:
+    if texte_quelle in ("ki", "zitate", "fakten") and not str(t.get("thema", "")).strip() and not beschreibung:
         raise KitFehler("Beschreibe deinen Account in einstellungen.yml unter account → beschreibung "
                         "(oder trag bei texte → thema ein Thema ein). Daraus schreibt die KI die Texte.")
     bp = roh.get("bildpost") or {}

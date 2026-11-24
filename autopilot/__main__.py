@@ -234,7 +234,7 @@ def posten(cfg, typ):
     verlauf["zuletzt"][typ] = heute
     eintrag = post.get("eintrag") or {}
     if eintrag.get("ki") and typ in ("bild", "reel"):
-        sprueche.merken(verlauf, eintrag["text"])
+        sprueche.merken(verlauf, eintrag["text"], eintrag.get("fakten_artikel", ""))
     elif post.get("eintrag_id") and typ in ("bild", "reel"):
         alle = [e["id"] for e in inhalte.posts_laden()]
         inhalte.als_benutzt_markieren(verlauf, typ, post["eintrag_id"], alle)
@@ -332,9 +332,10 @@ def pruefen():
     braucht_text = cfg is not None and (art == "zitate" or cfg["plan"]["bild"]["aktiv"]
                                          or (art == "eigene_medien" and cfg["eigene_medien"]["text_einblenden"]))
     braucht_cf = False
-    if braucht_text and cfg["texte"]["quelle"] in ("ki", "zitate"):
+    if braucht_text and cfg["texte"]["quelle"] in ("ki", "zitate", "fakten"):
         ok("Texte: die KI schreibt jeden Tag neue, passend zu deiner Beschreibung" if cfg["texte"]["quelle"] == "ki"
-           else "Texte: echte Zitate mit Quelle, Bibelverse im Wortlaut der Lutherbibel 1912")
+           else "Texte: echte Zitate mit Quelle, geprüft (Lutherbibel 1912, Wikiquote)" if cfg["texte"]["quelle"] == "zitate"
+           else "Texte: Fakten aus Wikipedia, mit Faktencheck und Quelle im Bild")
         braucht_cf = True
     elif braucht_text:
         try:

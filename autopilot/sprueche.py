@@ -19,8 +19,10 @@ Thema: {thema}
 Ton: {stil}
 
 Regeln:
-- Ein eigener, neu formulierter kurzer Text, der zum Account passt: je nach Thema ein Spruch, ein
-  überraschender Fakt, ein Tipp oder ein Gedanke. 6 bis 22 Wörter, höchstens 150 Zeichen.
+- Keine Zahlen, Rekorde, Jahreszahlen oder Tatsachenbehauptungen über Natur, Geschichte, Technik oder
+  Wissenschaft (dafür gibt es die Quelle "Fakten"). Schreibe Gedanken, Tipps, Fragen oder Motivation.
+- Ein eigener, neu formulierter kurzer Text, der zum Account passt: je nach Thema ein Spruch, ein Tipp,
+  eine Frage oder ein Gedanke. 6 bis 22 Wörter, höchstens 150 Zeichen.
 - Kein Zitat einer realen Person, kein Autor, keine Anführungszeichen, keine Emojis, keine Hashtags im Text.
 - Muss als Bild ohne weitere Erklärung verständlich sein.
 - Nichts Beleidigendes, keine Gesundheits- oder Finanzversprechen.
@@ -53,6 +55,22 @@ Antworte NUR mit JSON: {{"text": "...", "stelle": "Bibelstelle oder leer", "auto
  "kategorie": "ein Wort", "hashtags": ["#...", "#...", "#...", "#..."],
  "bild": "englische Bildbeschreibung passend zum Text, 10 bis 20 Wörter, ohne Text im Bild, keine realen Personen"}}
 Die hashtags: 4 bis 6 passende deutsche Hashtags, klein geschrieben."""
+
+SYSTEM_FAKTEN = """Du schreibst für einen deutschsprachigen Instagram-Account jeden Tag EINEN überraschenden Fakt
+für ein Bild.
+
+Beschreibung des Accounts: {beschreibung}
+Ton: {stil}
+
+WICHTIGSTE REGEL: Der Fakt stammt ausschließlich aus diesem Wikipedia-Artikel ("{artikel}"). Zahlen, Namen
+und Daten genau wie im Artikel. Nichts dazuerfinden, nichts runden, was nicht gerundet ist.
+
+Artikel:
+{text}
+
+Regeln: 6 bis 22 Wörter, ein ganzer Satz, verständlich ohne Zusammenhang, überraschend oder staunenswert.
+Antworte NUR mit JSON: {{"text": "...", "kategorie": "ein Wort", "hashtags": ["#...", "#...", "#...", "#..."],
+ "bild": "englische Bildbeschreibung passend zum Fakt, 10 bis 20 Wörter, ohne Text im Bild, keine realen Personen"}}"""
 
 MERKEN = 400
 
@@ -118,6 +136,55 @@ def _pruefen(daten, zitat=False, http=None):
             "bild": re.sub(r"\s+", " ", str(daten.get("bild", ""))).strip()[:300]}
 
 
+def fakt(cfg, verlauf, chat=None, http=None, zufall=None):
+    """Ein Fakt aus einem passenden Wikipedia-Artikel, mit Faktencheck. Quelle steht im Bild."""
+    import random as _random
+
+    from . import geschichten
+
+    zufall = zufall or _random
+    t = cfg["texte"]
+    g = {"beschreibung": cfg.get("beschreibung") or t["thema"], "thema": t["thema"], "text_ki": t["text_ki"]}
+    benutzt = verlauf.get("fakten_artikel", [])
+    vorschlaege = geschichten.ideen(g, "wikipedia", benutzt, chat, n=8, zufall=zufall)
+    if chat is None:
+        modelle, chat = ((["claude"], lambda n, _m: geschichten._claude_chat(n)) if t["text_ki"] == "claude"
+                         else (geschichten.CF_TEXT_MODELLE, geschichten._cloudflare_chat))
+    else:
+        modelle = ["test"]
+    gesehen = {inhalte.eintrag_id(x) for x in verlauf.get("ki_sprueche", [])}
+    fehler = []
+    for idee in vorschlaege[:3]:
+        a = geschichten._wissensartikel(str(idee["titel"]).strip(), http or geschichten.HTTP)
+        if not a or a[1] in benutzt:
+            continue
+        system = SYSTEM_FAKTEN.format(beschreibung=g["beschreibung"], stil=t["stil"] or "staunend, einfach",
+                                      artikel=a[1], text=a[2][:7000])
+        nachrichten = [{"role": "system", "content": system}, {"role": "user", "content": "Schreibe den Fakt."}]
+        for modell in [m for m in modelle[:2] for _ in range(2)]:
+            try:
+                antwort = chat(nachrichten, modell)
+                eintrag = _pruefen(geschichten._json_aus(antwort))
+            except KitFehler:
+                raise
+            except Exception as exc:  # noqa: BLE001
+                fehler.append(f"{modell}: {exc}")
+                continue
+            falsch = geschichten.faktencheck({"hook": {"text": eintrag["text"]}, "szenen": []}, a[2], chat, modell)
+            if falsch or eintrag["id"] in gesehen:
+                fehler.append(f"{a[1]}: Faktencheck" if falsch else f"{a[1]}: Wiederholung")
+                grund = ("Das steht so nicht im Artikel: " + "; ".join(falsch)) if falsch else "Das gab es schon."
+                nachrichten = nachrichten[:2] + [{"role": "assistant", "content": antwort},
+                                                 {"role": "user", "content": grund + " Bitte einen anderen Fakt, "
+                                                  "nur aus dem Artikel. Nur JSON."}]
+                continue
+            eintrag["autor"] = f"Quelle: Wikipedia ({a[1]})"
+            eintrag["fakten_artikel"] = a[1]
+            return eintrag
+    raise KitFehler("Gerade ließ sich kein geprüfter Fakt finden. Beim nächsten Lauf neuer Versuch. "
+                    + " | ".join(fehler[-3:]))
+
+
 def ki_spruch(cfg, verlauf, chat=None, http=None):
     from . import geschichten
 
@@ -167,11 +234,15 @@ def ki_spruch(cfg, verlauf, chat=None, http=None):
 
 def naechster_spruch(cfg, verlauf, liste, eintraege=None, chat=None):
     """Nächster Spruch aus der Datei oder von der KI."""
+    if cfg["texte"]["quelle"] == "fakten":
+        return fakt(cfg, verlauf, chat)
     if cfg["texte"]["quelle"] in ("ki", "zitate"):
         return ki_spruch(cfg, verlauf, chat)
     eintraege = eintraege or inhalte.posts_laden()
     return inhalte.naechster(eintraege, verlauf, liste, cfg["reihenfolge"])
 
 
-def merken(verlauf, text):
+def merken(verlauf, text, artikel=""):
     verlauf["ki_sprueche"] = (verlauf.get("ki_sprueche", []) + [text])[-MERKEN:]
+    if artikel:
+        verlauf["fakten_artikel"] = (verlauf.get("fakten_artikel", []) + [artikel])[-MERKEN:]

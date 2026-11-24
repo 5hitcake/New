@@ -271,3 +271,47 @@ def test_bildstil_auswahl_und_stilproben(tmp_path):
     dateien = ki_bilder.stilproben(str(tmp_path / "aus"), "a cat",
                                    lambda p: prompts.append(p) or Image.new("RGB", (1024, 1024), "gray"))
     assert len(dateien) == len(ki_bilder.STILE) and all("a cat" in p for p in prompts)
+
+
+def test_wikiquote_schneidet_quellenangabe_ab(monkeypatch):
+    seiten = dict(Wikimedia.SEITEN["wikiquote"])
+    seiten["Friedrich Nietzsche"] = ("== Zitate ==\n„Etwas Kurz-Gesagtes kann die Frucht und Ernte von vielem "
+                                     "Lang-Gedachten sein.\" - II, 1. Aph. 127\n")
+    monkeypatch.setitem(Wikimedia.SEITEN, "wikiquote", seiten)
+    _, zitate = wikimedia.belegte_zitate("Friedrich Nietzsche")
+    assert zitate == ["Etwas Kurz-Gesagtes kann die Frucht und Ernte von vielem Lang-Gedachten sein."]
+
+
+def test_fakten_aus_wikipedia_mit_faktencheck(monkeypatch):
+    from tests.test_inhaltsarten import Wiki
+
+    cfg = {"texte": {"quelle": "fakten", "thema": "", "stil": "", "text_ki": "cloudflare"}, "beschreibung": "Seefahrt"}
+    antworten = iter([
+        json.dumps({"ideen": [{"titel": "Mary Celeste"}]}),
+        json.dumps({"text": "Die Mary Celeste trieb 1872 ohne Besatzung über den Atlantik.", "kategorie": "Rätsel",
+                    "hashtags": ["#seefahrt"], "bild": "old ship"}),
+        json.dumps({"falsch": [0], "gruende": ["Jahr steht so nicht im Text"]}),
+        json.dumps({"text": "Die Mary Celeste war eine Brigg.", "kategorie": "Rätsel", "hashtags": [], "bild": "ship"}),
+        json.dumps({"falsch": []}),
+    ])
+    e = sprueche.fakt(cfg, {}, chat=lambda n, m: next(antworten), http=Wiki())
+    assert e["text"] == "Die Mary Celeste war eine Brigg." and e["autor"] == "Quelle: Wikipedia (Mary Celeste)"
+    v = {}
+    sprueche.merken(v, e["text"], e["fakten_artikel"])
+    assert v["fakten_artikel"] == ["Mary Celeste"]
+
+
+def test_faktencheck_laesst_skript_neu_schreiben():
+    antworten = iter([json.dumps(SKRIPT), json.dumps({"falsch": [2], "gruende": ["Ort falsch"]}),
+                      json.dumps(SKRIPT), json.dumps({"falsch": []})])
+    gesehen = []
+
+    def chat(n, m):
+        gesehen.append(n[-1]["content"])
+        return next(antworten)
+
+    g = {"thema": "Bibel", "beschreibung": "x", "szenen": 6, "text_ki": "cloudflare"}
+    skript, grund = geschichten.skript_schreiben(g, "Titel", "Ein Mensch hatte zwei Söhne.", chat,
+                                                 quelle="nacherzaehlung_text")
+    assert skript and grund is None
+    assert any("Ort falsch" in x for x in gesehen)

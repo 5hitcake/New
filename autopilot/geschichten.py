@@ -111,13 +111,14 @@ Thema des Accounts: {thema}
 
 QUELLEN_REGELN = {
     "wissen_text": """
-Das Reel vermittelt Wissen zum angegebenen Thema. WICHTIGSTE REGEL: Alle Fakten, Zahlen und Namen stammen
-aus dem mitgelieferten Artikel (Wikipedia oder Reiseführer Wikivoyage). Nichts dazuerfinden. Wähle die überraschendsten, anschaulichsten
-Fakten aus und erkläre sie einfach. Gib dem Reel einen kurzen "titel".
+Das Reel vermittelt Wissen. WICHTIGSTE REGEL: Alle Fakten, Zahlen und Namen stammen aus dem mitgelieferten
+Artikel (Wikipedia oder Reiseführer Wikivoyage). Nichts dazuerfinden. Passt das angegebene Thema nicht zum Artikel,
+nimm stattdessen die überraschendsten, anschaulichsten Fakten AUS DEM ARTIKEL und gib dem Reel einen passenden
+"titel". Formuliere nie einen Irrtum als Tatsache. Gib dem Reel einen kurzen "titel".
 """,
     "wissen": """
-Das Reel vermittelt nützliches Wissen zum Thema des Nutzers: Tipps, eine kurze Anleitung, überraschende
-Fakten oder "Mythos und Wahrheit". Nur korrekte, allgemein anerkannte Informationen. Erfinde keine Studien,
+Das Reel vermittelt nützliches Wissen zum Thema des Nutzers: Tipps, eine kurze Anleitung oder überraschende
+Fakten. Formuliere nur, was stimmt: nie einen Irrtum oder eine Vermutung als Tatsache. Nur korrekte, allgemein anerkannte Informationen. Erfinde keine Studien,
 Zahlen oder Zitate. Keine Heilversprechen, keine Finanz- oder Rechtsberatung, nichts Gefährliches.
 Konkret und praktisch statt allgemein: lieber "Stell dein Handy abends auf Graustufen" als "Achte auf dich".
 Gib dem Reel einen kurzen "titel".
@@ -130,8 +131,8 @@ Glauben und Kultur. Bist du dir bei der Handlung nicht sicher, antworte mit "gee
 Gib der Geschichte einen kurzen "titel".
 """,
     "nacherzaehlung_text": """
-Erzähle die Geschichte aus dem mitgelieferten Originaltext nach. WICHTIGSTE REGEL: Nur Inhalte aus diesem
-Text, nichts dazuerfinden. Erzähle in heutigem, lebendigem Deutsch (nicht in altertümlicher Sprache),
+Erzähle die Geschichte aus dem mitgelieferten Text nach (Originaltext oder Inhaltsangabe). WICHTIGSTE REGEL:
+Nur Inhalte aus diesem Text, nichts dazuerfinden. Namen, Orte und Ablauf genau wie im Text. Erzähle in heutigem, lebendigem Deutsch (nicht in altertümlicher Sprache),
 respektvoll. Eine kurze, bekannte Formulierung aus dem Original darf als wörtliches Zitat vorkommen.
 Gib der Geschichte einen kurzen "titel".
 """,
@@ -314,6 +315,32 @@ def _claude_chat(nachrichten, http=HTTP):
     return "".join(b.get("text", "") for b in resp.json().get("content", []))
 
 
+GEPRUEFTE_QUELLEN = ("wikipedia", "wissen_text", "nacherzaehlung_text")
+
+FAKTENCHECK = """Du prüfst ein Reel-Skript gegen seinen Quelltext. Für jede Szene (Hook = 0, Szenen ab 1):
+Wird die Aussage vom Quelltext gestützt? Allgemeines Weltwissen ohne Zahlen, Namen oder Daten ist erlaubt.
+Falsch ist: eine Zahl, ein Name, ein Ort, ein Ablauf oder eine Ursache, die im Quelltext anders steht oder fehlt,
+und jede Behauptung, die als Tatsache formuliert ist, aber im Quelltext als Irrtum oder Vermutung gilt.
+Antworte NUR mit JSON: {"falsch": [Nummern], "gruende": ["kurz je Nummer"]}"""
+
+
+def faktencheck(skript, quelltext, chat, modell):
+    """Liste von Problemen (leer = alles durch die Quelle gedeckt)."""
+    zeilen = [f"0: {skript['hook']['text']}"] + [f"{i}: {x['text']}" for i, x in enumerate(skript["szenen"], 1)]
+    nachrichten = [{"role": "system", "content": FAKTENCHECK},
+                   {"role": "user", "content": "Quelltext:\n" + quelltext[:9000] + "\n\nSkript:\n" + "\n".join(zeilen)}]
+    try:
+        daten = _json_aus(chat(nachrichten, modell))
+    except KitFehler:
+        raise
+    except Exception:  # noqa: BLE001 - Prüfung nicht möglich, dann gilt das Skript
+        return []
+    falsch = [n for n in daten.get("falsch") or [] if isinstance(n, int)]
+    gruende = [str(x) for x in daten.get("gruende") or []]
+    return [f"Szene {n}: {gruende[i] if i < len(gruende) else 'nicht durch die Quelle gedeckt'}"
+            for i, n in enumerate(falsch)]
+
+
 def skript_schreiben(g, titel, text, chat=None, quelle="wikipedia"):
     """Gibt (skript, None) oder (None, Grund) zurück. Bei quelle="fiktion" ist text die Anregung."""
     englisch = bool(re.search(r"\b(the|and|was|were)\b", text[:2000])) and not re.search(
@@ -354,6 +381,12 @@ def skript_schreiben(g, titel, text, chat=None, quelle="wikipedia"):
             if not skript.get("geeignet", True):
                 return None, f"passt nicht: {skript.get('grund', '')}"
             probleme = pruefen(skript, g.get("szenen", 6))
+            if not probleme and quelle in GEPRUEFTE_QUELLEN:
+                falsch = faktencheck(skript, text, chat, modell)
+                if falsch:
+                    print(f"  Faktencheck: {'; '.join(falsch)[:300]}")
+                    probleme = ["Diese Aussagen stimmen nicht mit dem Quelltext überein, nur Fakten aus dem Text "
+                                "verwenden: " + "; ".join(falsch)]
             if not probleme:
                 return aufraeumen(skript), None
             fehler.append(f"{modell}: {'; '.join(probleme[:2])}")
@@ -376,8 +409,8 @@ IDEEN = {
                        'deutschen Titel (z.B. "Hänsel und Gretel", "Der Rattenfänger von Hameln"). '
                        'JSON: {{"ideen": [{{"titel": "...", "stelle": "..."}}]}}'),
     "wissen": ('Nenne {n} konkrete Themen für je ein kurzes Wissens-Reel, die genau zum Account passen: Tipps, '
-               'kleine Anleitungen, überraschende Fakten oder "Mythos und Wahrheit". Konkret, z.B. "3 Fehler beim '
-               'Kartoffeln kochen" statt "Kochen". Geht es um Sachwissen (z.B. Tiere, Geschichte, Natur, Technik, '
+               'kleine Anleitungen oder überraschende Fakten. Konkret, z.B. "3 Fehler beim Kartoffeln kochen" '
+               'statt "Kochen". Keine Formate wie "Irrtümer" oder "Mythos und Wahrheit". Geht es um Sachwissen (z.B. Tiere, Geschichte, Natur, Technik, '
                'Weltraum), trage in "wikipedia" den Titel des DEUTSCHEN Wikipedia-Artikels ein, in dem die Fakten '
                'stehen (z.B. "Tyrannosaurus"). Geht es um ein Reiseziel, trage in "reiseziel" den Ort oder die '
                'Region ein (z.B. "Lissabon"). Bei praktischen Tipps ohne passenden Artikel beides leer lassen. '
@@ -504,19 +537,25 @@ def _nacherzaehlung(g, verlauf, chat=None, zufall=random):
             continue
         original = bibel.text(stelle) if bibel.ist_stelle(stelle) else None
         projekt = "bibel" if original else ""
+        artikel_titel = ""
         if not original:
             quelltext = _originaltext(titel, stelle)
             if quelltext:
                 original, projekt = (stelle or quelltext[0], quelltext[1][:9000]), "wikisource"
+        if not original:  # kein Originaltext: Inhaltsangabe aus Wikipedia, damit die Handlung stimmt
+            a = _wissensartikel(titel, HTTP)
+            if a:
+                original, projekt, artikel_titel = (stelle, a[2][:9000]), "wikipedia", a[1]
         if original:
             stelle, text = original
-            skript, grund = skript_schreiben(g, f"{titel} ({stelle})", text, chat, quelle="nacherzaehlung_text")
+            skript, grund = skript_schreiben(g, f"{titel} ({stelle})" if stelle else titel, text, chat,
+                                             quelle="nacherzaehlung_text")
         else:
             auftrag = f"Erzähle diese Geschichte nach: {titel}" + (f" (Herkunft: {stelle})." if stelle else ".")
             skript, grund = skript_schreiben(g, titel, auftrag, chat, quelle="nacherzaehlung")
         if skript:
             skript.update(quelle_art="nacherzaehlung", quelle=stelle, titel=titel, merken=[f"erz:{titel}"],
-                          quelle_projekt=projekt)
+                          quelle_projekt=projekt, quelle_artikel=artikel_titel)
             print(f"+ {titel} ({stelle or 'überliefert'}): Skript geschrieben")
             return skript
         print(f"- {titel}: {grund}")
