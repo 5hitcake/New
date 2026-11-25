@@ -122,6 +122,13 @@ Thema des Accounts: {thema}
 {beschreibung}"""
 
 QUELLEN_REGELN = {
+    "eigene_quelle": """
+Mach aus dem mitgelieferten Abschnitt (aus den eigenen Unterlagen des Nutzers) ein Reel: je nachdem, was der Text
+hergibt, eine kurze Geschichte oder Wissen mit den spannendsten Punkten. WICHTIGSTE REGEL: Nur Inhalte aus diesem
+Text, nichts dazuerfinden. Einfache Sprache, keine Fachbegriffe ohne Erklärung. Gib dem Reel einen kurzen "titel".
+Antworte nur dann mit "geeignet": false, wenn der Abschnitt fast keinen verwertbaren Inhalt hat
+(z.B. Inhaltsverzeichnis, Impressum).
+""",
     "wissen_text": """
 Das Reel vermittelt Wissen. WICHTIGSTE REGEL: Alle Fakten, Zahlen und Namen stammen aus dem mitgelieferten
 Artikel (Wikipedia oder Reiseführer Wikivoyage). Nichts dazuerfinden. Erkläre für Laien: keine Fachbegriffe
@@ -391,7 +398,7 @@ def _claude_chat(nachrichten, http=HTTP):
     return "".join(b.get("text", "") for b in resp.json().get("content", []))
 
 
-GEPRUEFTE_QUELLEN = ("wikipedia", "wissen_text", "nacherzaehlung_text")
+GEPRUEFTE_QUELLEN = ("wikipedia", "wissen_text", "nacherzaehlung_text", "eigene_quelle")
 
 FAKTENCHECK = """Du prüfst ein Reel-Skript gegen seinen Quelltext (Hook = 0, Szenen ab 1).
 Melde NUR echte inhaltliche Fehler: eine Zahl, ein Name, ein Ort, eine Zeitangabe, ein Ereignis oder eine
@@ -427,6 +434,8 @@ def skript_schreiben(g, titel, text, chat=None, quelle="wikipedia"):
     hinweis = " Der Text ist englisch: schreibe trotzdem auf DEUTSCH und übersetze genau." if englisch else ""
     if quelle in ("fiktion", "wissen", "nacherzaehlung"):
         nutzer = text
+    elif quelle == "eigene_quelle":
+        nutzer = f"Abschnitt aus der Quelle „{titel}“:\n\n{text}"
     elif quelle == "wissen_text":
         nutzer = (f'Ungefähres Thema (darf frei angepasst werden): {titel}\n'
                   'Steht dazu nichts im Artikel, wähle einfach die staunenswertesten Fakten AUS DEM ARTIKEL '
@@ -675,8 +684,29 @@ def _nacherzaehlung(g, verlauf, chat=None, zufall=random):
     raise KitFehler("Gerade ließ sich keine Geschichte nacherzählen. Beim nächsten Lauf neuer Versuch.")
 
 
+def _eigene_quellen(g, verlauf, chat=None):
+    from . import eigene_quellen
+
+    benutzt = {m.removeprefix("quelle:") for m in verlauf.get("wiki_benutzt", []) + verlauf.get("wiki_abgelehnt", [])
+               if m.startswith("quelle:")}
+    for _ in range(3):
+        name, text, kennung = eigene_quellen.naechster_abschnitt(benutzt)
+        anzeige = eigene_quellen.anzeigename(name)
+        skript, grund = skript_schreiben(g, anzeige, text, chat, quelle="eigene_quelle")
+        if skript:
+            skript.update(quelle_art="eigene_quellen", quelle=anzeige, merken=[f"quelle:{kennung}"])
+            print(f"+ {anzeige} (Abschnitt {kennung}): Skript geschrieben")
+            return skript
+        print(f"- {anzeige} (Abschnitt {kennung}): {grund}")
+        benutzt.add(kennung)
+        verlauf["wiki_abgelehnt"] = (verlauf.get("wiki_abgelehnt", []) + [f"quelle:{kennung}"])[-500:]
+    raise KitFehler("Aus deinen eigenen Quellen ließ sich gerade kein Reel schreiben. Beim nächsten Lauf neuer Versuch.")
+
+
 def neue_geschichte(g, verlauf, http=HTTP, chat=None, zufall=random):
     """Wählt je nach Einstellung die Quelle."""
+    if g.get("quelle") == "eigene_quellen":
+        return _eigene_quellen(g, verlauf, chat)
     if g.get("quelle") == "wissen":
         return _wissen(g, verlauf, http, chat, zufall)
     if g.get("quelle") == "nacherzaehlung":

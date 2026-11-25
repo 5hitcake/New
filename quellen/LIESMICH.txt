@@ -1,0 +1,18 @@
+Eigene Quellen für deine Posts und Reels (optional)
+
+Hier kannst du eigene Unterlagen ablegen, aus denen die KI Inhalte macht:
+- PDF-Dateien (mit echtem Text, keine eingescannten Bilder)
+- Textdateien (.txt oder .md)
+- Webseiten: Trage in die Datei links.txt je eine Adresse pro Zeile ein (beginnend mit https://)
+
+Damit das Kit sie nutzt, in einstellungen.yml einstellen:
+- Für Sprecher-Reels:  geschichten → quelle: "eigene_quellen"
+- Für Bild-Posts:      texte → quelle: "eigene_quellen"
+
+Die KI nimmt reihum Abschnitt für Abschnitt und schreibt nur, was in deinen Unterlagen steht
+(mit Faktencheck). Die Quelle steht in der Caption.
+
+Wichtig:
+- Das Repository ist öffentlich. Lege hier nur Unterlagen ab, die jeder sehen darf.
+- Nutze nur Inhalte, die du verwenden darfst (eigene Texte, freie Lizenzen, mit Erlaubnis).
+  Für fremde Webseiten und Bücher bist du selbst verantwortlich.
