@@ -221,12 +221,42 @@ def system_prompt(thema, quelle="wikipedia", szenen=6, beschreibung=""):
     return text.replace("{szenen}", str(szenen)).replace("{bogen}", bogen)
 
 
+def _anfuehrungszeichen_reparieren(text):
+    """Setzt unmaskierte " innerhalb von Texten in JSON zu \" um (häufiger KI-Fehler)."""
+    aus, im_text, i = [], False, 0
+    while i < len(text):
+        c = text[i]
+        if c == "\\" and im_text:
+            aus.append(text[i:i + 2])
+            i += 2
+            continue
+        if c == '"':
+            if not im_text:
+                im_text = True
+            else:
+                rest = text[i + 1:].lstrip()
+                if not rest or rest[0] in ",:}]":
+                    im_text = False
+                else:
+                    aus.append('\\"')
+                    i += 1
+                    continue
+        aus.append(c)
+        i += 1
+    return "".join(aus)
+
+
 def _json_aus(text):
     text = re.sub(r"^```(?:json)?|```$", "", text.strip(), flags=re.MULTILINE).strip()
     a, b = text.find("{"), text.rfind("}")
     if a < 0 or b < 0:
         raise ValueError("keine JSON-Antwort")
-    return json.loads(text[a:b + 1])
+    roh = text[a:b + 1]
+    try:
+        return json.loads(roh)
+    except json.JSONDecodeError:
+        repariert = re.sub(r",\s*([}\]])", r"\1", _anfuehrungszeichen_reparieren(roh))
+        return json.loads(repariert)
 
 
 def _woerter(text):
@@ -330,7 +360,8 @@ def _pollinations_chat(nachrichten, modell=None, http=HTTP):
     resp = http.post("https://gen.pollinations.ai/v1/chat/completions", timeout=180,
                      headers={"Authorization": f"Bearer {schluessel}"},
                      json={"model": os.environ.get("KIT_POLLINATIONS_MODELL") or POLLINATIONS_MODELL,
-                           "messages": nachrichten, "temperature": 0.6})
+                           "messages": nachrichten, "temperature": 0.6,
+                           "response_format": {"type": "json_object"}})
     if not resp.ok:
         raise RuntimeError(f"pollinations: HTTP {resp.status_code} {resp.text[:200]}")
     return resp.json()["choices"][0]["message"]["content"] or ""
@@ -354,10 +385,13 @@ def _claude_chat(nachrichten, http=HTTP):
 
 GEPRUEFTE_QUELLEN = ("wikipedia", "wissen_text", "nacherzaehlung_text")
 
-FAKTENCHECK = """Du prüfst ein Reel-Skript gegen seinen Quelltext. Für jede Szene (Hook = 0, Szenen ab 1):
-Wird die Aussage vom Quelltext gestützt? Allgemeines Weltwissen ohne Zahlen, Namen oder Daten ist erlaubt.
-Falsch ist: eine Zahl, ein Name, ein Ort, ein Ablauf oder eine Ursache, die im Quelltext anders steht oder fehlt,
-und jede Behauptung, die als Tatsache formuliert ist, aber im Quelltext als Irrtum oder Vermutung gilt.
+FAKTENCHECK = """Du prüfst ein Reel-Skript gegen seinen Quelltext (Hook = 0, Szenen ab 1).
+Melde NUR echte inhaltliche Fehler: eine Zahl, ein Name, ein Ort, eine Zeitangabe, ein Ereignis oder eine
+Ursache, die im Quelltext anders steht oder frei erfunden ist, oder eine Behauptung, die der Quelltext
+ausdrücklich als falsch bezeichnet.
+KEIN Fehler sind: Vereinfachungen, lockere Formulierungen, Zuspitzungen für Social Media, fehlende
+Einschränkungen wie "nach Ansicht der Forscher" oder "etwa", Fragen, Tipps und allgemeines Weltwissen.
+Im Zweifel NICHT melden.
 Antworte NUR mit JSON: {"falsch": [Nummern], "gruende": ["kurz je Nummer"]}"""
 
 
@@ -446,8 +480,10 @@ IDEEN = {
                        'deutschen Titel (z.B. "Hänsel und Gretel", "Der Rattenfänger von Hameln"). '
                        'JSON: {{"ideen": [{{"titel": "...", "stelle": "..."}}]}}'),
     "wissen": ('Nenne {n} konkrete Themen für je ein kurzes Wissens-Reel, die genau zum Account passen: Tipps, '
-               'kleine Anleitungen oder überraschende Fakten. Konkret, z.B. "3 Fehler beim Kartoffeln kochen" '
-               'statt "Kochen". Keine Formate wie "Irrtümer" oder "Mythos und Wahrheit". Geht es um Sachwissen (z.B. Tiere, Geschichte, Natur, Technik, '
+               'kleine Anleitungen oder überraschende Fakten. Passe die Art an das Thema an: bei Sachthemen '
+               'staunenswerte Fakten über etwas Konkretes (z.B. "Wie schnell war der Tyrannosaurus?"), bei '
+               'praktischen Themen Tipps (z.B. "3 Fehler beim Kartoffeln kochen"). Keine Formate wie "Irrtümer" '
+               'oder "Mythos und Wahrheit", keine Fragen an den Nutzer über seine eigenen Fotos oder Dinge. Geht es um Sachwissen (z.B. Tiere, Geschichte, Natur, Technik, '
                'Weltraum), trage in "wikipedia" den Titel des DEUTSCHEN Wikipedia-Artikels ein, in dem die Fakten '
                'stehen (z.B. "Tyrannosaurus"). Geht es um ein Reiseziel, trage in "reiseziel" den Ort oder die '
                'Region ein (z.B. "Lissabon"). Bei praktischen Tipps ohne passenden Artikel beides leer lassen. '
