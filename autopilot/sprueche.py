@@ -149,7 +149,7 @@ def fakt(cfg, verlauf, chat=None, http=None, zufall=None):
     vorschlaege = geschichten.ideen(g, "wikipedia", benutzt, chat, n=8, zufall=zufall)
     if chat is None:
         modelle, chat = ((["claude"], lambda n, _m: geschichten._claude_chat(n)) if t["text_ki"] == "claude"
-                         else (geschichten.CF_TEXT_MODELLE, geschichten._cloudflare_chat))
+                         else (geschichten.textmodelle(), geschichten._cloudflare_chat))
     else:
         modelle = ["test"]
     gesehen = {inhalte.eintrag_id(x) for x in verlauf.get("ki_sprueche", [])}
@@ -202,7 +202,7 @@ def ki_spruch(cfg, verlauf, chat=None, http=None):
         if t["text_ki"] == "claude":
             modelle, chat = ["claude"], lambda n, _m: geschichten._claude_chat(n)
         else:
-            modelle, chat = geschichten.CF_TEXT_MODELLE, geschichten._cloudflare_chat
+            modelle, chat = geschichten.textmodelle(), geschichten._cloudflare_chat
     else:
         modelle = ["test"]
     fehler = []

@@ -159,6 +159,10 @@ def pruefen(roh):
     bp = roh.get("bildpost") or {}
     from .ki_bilder import STILE
 
+    modell = str(roh.get("ki_textmodell") or "").strip()
+    if modell:
+        os.environ["KIT_TEXT_MODELL"] = modell if modell.startswith("@cf/") else f"@cf/{modell}"
+
     look = str((roh.get("account") or {}).get("bildstil", "auto") or "auto").strip().lower()
     look = look.replace("ö", "oe").replace("ü", "ue").replace("ä", "ae").replace("3d-animation", "3d")
     if look != "auto" and look not in STILE:

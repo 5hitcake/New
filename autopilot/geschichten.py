@@ -22,6 +22,12 @@ import requests
 from .einstellungen import EIGENE_TEXTE, KitFehler
 
 WIKI_API = "https://{lang}.wikipedia.org/w/api.php"
+def textmodelle():
+    """Reihenfolge der kostenlosen Text-Modelle. einstellungen.yml → ki_textmodell stellt eines nach vorn."""
+    wunsch = os.environ.get("KIT_TEXT_MODELL", "").strip()
+    return ([wunsch] if wunsch else []) + [m for m in CF_TEXT_MODELLE if m != wunsch]
+
+
 CF_TEXT_MODELLE = [
     "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
     "@cf/zai-org/glm-4.7-flash",
@@ -283,7 +289,8 @@ def _cloudflare_chat(nachrichten, modell, http=HTTP):
         raise KitFehler(cloudflare_hinweis())
     resp = http.post(f"https://api.cloudflare.com/client/v4/accounts/{konto}/ai/run/{modell}",
                      headers={"Authorization": f"Bearer {token}"}, timeout=180,
-                     json={"messages": nachrichten, "max_tokens": 2500, "temperature": 0.6})
+                     json={"messages": nachrichten, "max_tokens": 6000 if "gpt-oss" in modell else 2500,
+                           "temperature": 0.6})
     if resp.status_code in (401, 403) and "5035" not in resp.text:  # 5035 = Modell nur im Bezahl-Tarif
         raise KitFehler("Cloudflare lehnt den Zugang ab. Prüfe CLOUDFLARE_ACCOUNT_ID und ob der API-Token "
                         "die Berechtigung 'Workers AI' hat.")
@@ -296,6 +303,10 @@ def _cloudflare_chat(nachrichten, modell, http=HTTP):
     aus = ergebnis.get("response")
     if aus is None and ergebnis.get("choices"):
         aus = ergebnis["choices"][0]["message"]["content"]
+    if aus is None and isinstance(ergebnis.get("output"), list):  # Antwortformat mancher neuer Modelle
+        texte = [c.get("text", "") for o in ergebnis["output"] if o.get("type") == "message"
+                 for c in o.get("content") or [] if isinstance(c, dict)]
+        aus = "".join(texte) or None
     return json.dumps(aus, ensure_ascii=False) if isinstance(aus, (dict, list)) else (aus or "")
 
 
@@ -363,7 +374,7 @@ def skript_schreiben(g, titel, text, chat=None, quelle="wikipedia"):
         if g["text_ki"] == "claude":
             modelle, chat = ["claude"], lambda n, _m: _claude_chat(n)
         else:
-            modelle, chat = CF_TEXT_MODELLE, _cloudflare_chat
+            modelle, chat = textmodelle(), _cloudflare_chat
     else:
         modelle = ["test"]
     fehler = []
@@ -432,7 +443,7 @@ def ideen(g, art, bisher, chat=None, n=8, zufall=random):
         if g.get("text_ki") == "claude":
             modelle, chat = ["claude"], lambda nn, _m: _claude_chat(nn)
         else:
-            modelle, chat = CF_TEXT_MODELLE, _cloudflare_chat
+            modelle, chat = textmodelle(), _cloudflare_chat
     else:
         modelle = ["test"]
     for modell in modelle:
