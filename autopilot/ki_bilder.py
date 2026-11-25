@@ -49,7 +49,7 @@ def _bild_aus(resp):
     return base64.b64decode(bild)
 
 
-def erzeugen(prompt, http=requests, schlafen=time.sleep):
+def _erzeugen_cloudflare(prompt, http=requests, schlafen=time.sleep):
     """Gibt ein PIL-Bild zurück oder None, wenn kein Modell geliefert hat."""
     konto = os.environ.get("CLOUDFLARE_ACCOUNT_ID", "").strip()
     token = os.environ.get("CLOUDFLARE_API_TOKEN", "").strip()
@@ -80,6 +80,36 @@ def erzeugen(prompt, http=requests, schlafen=time.sleep):
                 print(f"Bild-KI {modell}: {type(exc).__name__}")
             schlafen(8 * (versuch + 1))
     return None
+
+
+def _erzeugen_pollinations(prompt, http=requests):
+    """Optionaler Ersatz: pollinations.ai (Secret POLLINATIONS_API_KEY). None, wenn nicht eingerichtet."""
+    schluessel = os.environ.get("POLLINATIONS_API_KEY", "").strip()
+    if not schluessel:
+        return None
+    from urllib.parse import quote
+
+    for versuch in range(2):
+        try:
+            resp = http.get(f"https://gen.pollinations.ai/image/{quote(prompt[:1500], safe='')}",
+                            params={"model": "flux", "width": BREITE, "height": HOEHE, "nologo": "true"},
+                            headers={"Authorization": f"Bearer {schluessel}"}, timeout=180)
+            if resp.ok and resp.headers.get("Content-Type", "").startswith("image/"):
+                return Image.open(io.BytesIO(resp.content)).convert("RGB")
+            print(f"Bild-KI Pollinations: HTTP {resp.status_code}")
+        except (requests.RequestException, OSError) as exc:
+            print(f"Bild-KI Pollinations: {type(exc).__name__}")
+        time.sleep(10)
+    return None
+
+
+def erzeugen(prompt, *args, **kwargs):
+    """Erst Cloudflare, bei Ausfall oder leerem Kontingent Pollinations (falls eingerichtet)."""
+    if os.environ.get("KIT_BILD_KI") == "pollinations":
+        return _erzeugen_pollinations(prompt if "no text" in prompt else f"{prompt}, {OHNE_TEXT}") or \
+            _erzeugen_cloudflare(prompt, *args, **kwargs)
+    return _erzeugen_cloudflare(prompt, *args, **kwargs) or _erzeugen_pollinations(
+        prompt if "no text" in prompt else f"{prompt}, {OHNE_TEXT}")
 
 
 def stilproben(ordner, motiv=STIL_PROBE_MOTIV, erzeugen_fn=None):

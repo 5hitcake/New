@@ -159,6 +159,9 @@ def pruefen(roh):
     bp = roh.get("bildpost") or {}
     from .ki_bilder import STILE
 
+    anbieter = str(roh.get("ki_anbieter") or "").strip().lower()
+    if anbieter == "pollinations":  # nur zum Testen/Ausweichen: Text und Bilder über pollinations.ai
+        os.environ["KIT_TEXT_KI"] = os.environ["KIT_BILD_KI"] = "pollinations"
     modell = str(roh.get("ki_textmodell") or "").strip()
     if modell:
         os.environ["KIT_TEXT_MODELL"] = modell if modell.startswith("@cf/") else f"@cf/{modell}"

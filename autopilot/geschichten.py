@@ -22,6 +22,12 @@ import requests
 from .einstellungen import EIGENE_TEXTE, KitFehler
 
 WIKI_API = "https://{lang}.wikipedia.org/w/api.php"
+def _cf_oder_pollinations(nachrichten, modell):
+    if os.environ.get("KIT_TEXT_KI") == "pollinations":
+        return _pollinations_chat(nachrichten)
+    return _cloudflare_chat(nachrichten, modell)
+
+
 def textmodelle():
     """Reihenfolge der kostenlosen Text-Modelle. einstellungen.yml → ki_textmodell stellt eines nach vorn."""
     wunsch = os.environ.get("KIT_TEXT_MODELL", "").strip()
@@ -297,6 +303,9 @@ def _cloudflare_chat(nachrichten, modell, http=HTTP):
     if not resp.ok:
         from .einstellungen import KONTINGENT_HINWEIS, kontingent_leer
         if kontingent_leer(resp.text):
+            if os.environ.get("POLLINATIONS_API_KEY", "").strip():
+                print("  Cloudflare-Kontingent leer, nehme Pollinations")
+                return _pollinations_chat(nachrichten)
             raise KitFehler(KONTINGENT_HINWEIS)
         raise RuntimeError(f"{modell}: HTTP {resp.status_code} {resp.text[:200]}")
     ergebnis = resp.json().get("result", {})
@@ -308,6 +317,23 @@ def _cloudflare_chat(nachrichten, modell, http=HTTP):
                  for c in o.get("content") or [] if isinstance(c, dict)]
         aus = "".join(texte) or None
     return json.dumps(aus, ensure_ascii=False) if isinstance(aus, (dict, list)) else (aus or "")
+
+
+POLLINATIONS_MODELL = "openai"
+
+
+def _pollinations_chat(nachrichten, modell=None, http=HTTP):
+    """Optional: Text über pollinations.ai (OpenAI-kompatibel, Secret POLLINATIONS_API_KEY)."""
+    schluessel = os.environ.get("POLLINATIONS_API_KEY", "").strip()
+    if not schluessel:
+        raise KitFehler("Für Pollinations fehlt das Secret POLLINATIONS_API_KEY.")
+    resp = http.post("https://gen.pollinations.ai/v1/chat/completions", timeout=180,
+                     headers={"Authorization": f"Bearer {schluessel}"},
+                     json={"model": os.environ.get("KIT_POLLINATIONS_MODELL") or POLLINATIONS_MODELL,
+                           "messages": nachrichten, "temperature": 0.6})
+    if not resp.ok:
+        raise RuntimeError(f"pollinations: HTTP {resp.status_code} {resp.text[:200]}")
+    return resp.json()["choices"][0]["message"]["content"] or ""
 
 
 def _claude_chat(nachrichten, http=HTTP):
@@ -374,7 +400,7 @@ def skript_schreiben(g, titel, text, chat=None, quelle="wikipedia"):
         if g["text_ki"] == "claude":
             modelle, chat = ["claude"], lambda n, _m: _claude_chat(n)
         else:
-            modelle, chat = textmodelle(), _cloudflare_chat
+            modelle, chat = textmodelle(), _cf_oder_pollinations
     else:
         modelle = ["test"]
     fehler = []
@@ -443,7 +469,7 @@ def ideen(g, art, bisher, chat=None, n=8, zufall=random):
         if g.get("text_ki") == "claude":
             modelle, chat = ["claude"], lambda nn, _m: _claude_chat(nn)
         else:
-            modelle, chat = textmodelle(), _cloudflare_chat
+            modelle, chat = textmodelle(), _cf_oder_pollinations
     else:
         modelle = ["test"]
     for modell in modelle:
