@@ -192,6 +192,13 @@ def fakt(cfg, verlauf, chat=None, http=None, zufall=None):
             except Exception as exc:  # noqa: BLE001
                 fehler.append(f"{modell}: {exc}")
                 continue
+            if re.search(r"\b(dort|hier|damals|diese[rsmn]?|deren|dessen)\b", eintrag["text"].split(",")[0], re.IGNORECASE) \
+                    or eintrag["text"].split()[0].lower() in ("er", "sie", "es", "ihr", "sein", "seine"):
+                fehler.append(f"{a[1]}: ohne Zusammenhang unverständlich")
+                nachrichten = nachrichten[:2] + [{"role": "assistant", "content": antwort}, {
+                    "role": "user", "content": "Der Satz ist ohne Zusammenhang nicht verständlich (dort, hier, er, "
+                    "diese …). Nenne das Thema ausdrücklich im Satz. Nur JSON."}]
+                continue
             falsch = geschichten.faktencheck({"hook": {"text": eintrag["text"]}, "szenen": []}, a[2], chat, modell)
             if falsch or eintrag["id"] in gesehen:
                 fehler.append(f"{a[1]}: Faktencheck" if falsch else f"{a[1]}: Wiederholung")
