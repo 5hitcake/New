@@ -274,6 +274,8 @@ def pruefen(skript, soll=6):
         p.append("hook braucht text und bild")
     elif _woerter(hook["text"]) > 16:
         p.append("hook ist zu lang (max. 14 Wörter)")
+    elif re.search(r"[.!?]\s+\*?[\wÄÖÜäöüß-]+\*?[.!?]?$", hook["text"]):
+        p.append("hook: am Ende hängt ein einzelnes Wort, bitte nur der Satz")
     elif _woerter(hook["text"]) < 5:
         p.append("hook ist zu kurz: ein ganzer, neugierig machender Satz mit 6 bis 14 Wörtern")
     szenen = skript.get("szenen") or []
@@ -284,6 +286,9 @@ def pruefen(skript, soll=6):
             p.append(f"Szene {i} braucht text und bild")
         elif not 9 <= _woerter(s["text"]) <= 24:
             p.append(f"Szene {i} hat {_woerter(s['text'])} Wörter, nötig sind 12 bis 18")
+        elif re.search(r"[.!?]\s+\*?[\wÄÖÜäöüß-]+\*?[.!?]?$", s["text"]):
+            p.append(f"Szene {i}: am Ende hängt ein einzelnes Wort. Das Schlüsselwort im Satz mit *Sternchen* "
+                     "markieren, nicht extra anhängen")
     frage = str(skript.get("frage", ""))
     if not frage.endswith("?") or _woerter(frage) > 10:
         p.append("frage muss kurz sein und mit ? enden")
@@ -478,8 +483,9 @@ IDEEN = {
                   'Nur einzelne Ereignisse, Orte, Fälle, Entdeckungen oder Erzählungen, keine Oberbegriffe '
                   '(z.B. nicht "Bibel", sondern "Arche Noah"), keine Listen, keine lebenden Privatpersonen. '
                   'JSON: {{"ideen": [{{"titel": "..."}}]}}'),
-    "nacherzaehlung": ('Nenne {n} bekannte, überlieferte Geschichten, die genau zum Account passen (z.B. aus der '
-                       'Bibel, aus Sagen, Märchen, Mythen, Fabeln oder Legenden). Bei Bibelgeschichten in "stelle" '
+    "nacherzaehlung": ('Nenne {n} bekannte, überlieferte Geschichten, die genau zur Beschreibung des Accounts '
+                       'passen (je nach Account aus Sagen, Märchen, Mythen, Fabeln, Legenden oder, nur bei '
+                       'Glaubens-Accounts, aus der Bibel). Bei Bibelgeschichten in "stelle" '
                        'die genaue Bibelstelle (z.B. "Lukas 15,11-32" oder "1. Mose 6-9"), sonst die Herkunft '
                        '(z.B. "Brüder Grimm", "griechische Mythologie", "Äsop"). Als "titel" den bekannten '
                        'deutschen Titel (z.B. "Hänsel und Gretel", "Der Rattenfänger von Hameln"). '
