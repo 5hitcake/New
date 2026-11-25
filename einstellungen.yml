@@ -6,10 +6,10 @@
 
 # Dein Instagram-Name OHNE @ (Sicherheitscheck: es wird nur auf
 # diesen Account gepostet, nie aus Versehen auf einen anderen).
-instagram_name: "sagen.und.maerchen"
+instagram_name: "bibel.taeglich"
 
 # Wird unten auf jedes Bild geschrieben. Leer lassen ("") = kein Name im Bild.
-name_im_bild: "@sagen.und.maerchen"
+name_im_bild: "@bibel.taeglich"
 
 # Deine Instagram-Konto-ID: die lange Zahl (beginnt meist mit 1784) unter deinem
 # Kontonamen im Meta-Dashboard bei "Zugriffstokens generieren". Nötig bei Tokens,
@@ -22,7 +22,7 @@ instagram_konto_id: "17841474886132946"
 #  Worum geht es? Für wen? Welcher Ton? Was soll es NICHT geben?
 # ------------------------------------------------------------
 account:
-  beschreibung: "Thema: Deutsche Sagen, Märchen und Legenden neu erzählt. Zielgruppe: Erwachsene, die alte Geschichten lieben. Ton: ruhig und nachdenklich, in der Du-Form. Bitte nicht: keine Gewalt gegen Kinder im Detail. Beispiel für einen typischen Post: „Der Rattenfänger von Hameln nahm mehr mit als nur Ratten.“"
+  beschreibung: "Thema: Bibelverse und kurze Geschichten aus der Bibel für den Alltag. Zielgruppe: Christen und alle, die im Glauben Halt suchen. Ton: herzlich und persönlich, in der Du-Form. Bitte nicht: keine Politik, keine anderen Religionen schlechtmachen. Beispiel für einen typischen Post: „Der Herr ist mein Hirte, mir wird nichts mangeln. (Psalm 23,1)“"
 
 # ------------------------------------------------------------
 #  Welche Art von Reels? Genau EINE eintragen (Bild-Posts gibt es bei allen):
