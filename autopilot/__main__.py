@@ -19,7 +19,7 @@ from datetime import datetime
 from . import design, inhalte, instagram, profil, reel, reels, sprueche
 from .einstellungen import AUSGABE, ROOT, VERLAUF, KitFehler, laden
 
-AKTIONEN = ("automatisch", "setup-pruefen", "vorschau", "stimmproben", "jetzt-posten", "jetzt-story-posten", "token-erneuern")
+AKTIONEN = ("automatisch", "setup-pruefen", "vorschau", "stimmproben", "bildstile", "kit-update", "jetzt-posten", "jetzt-story-posten", "token-erneuern")
 
 
 def _zusammenfassung(text):
@@ -127,7 +127,7 @@ def _zitat_fuer_story(cfg, verlauf, eintraege):
     bild = _lesen("bild")
     if bild and bild.get("eintrag"):
         return bild["eintrag"], bild["hintergrund"] if _hg_gueltig(bild["hintergrund"]) else None
-    heute = verlauf["heute_bild"]
+    heute = verlauf.get("heute_bild") or {}
     if heute.get("datum") == _jetzt(cfg).date().isoformat():
         if heute.get("eintrag"):
             hg = heute.get("hintergrund")
@@ -234,7 +234,7 @@ def posten(cfg, typ):
     verlauf["zuletzt"][typ] = heute
     eintrag = post.get("eintrag") or {}
     if eintrag.get("ki") and typ in ("bild", "reel"):
-        sprueche.merken(verlauf, eintrag["text"])
+        sprueche.merken(verlauf, eintrag["text"], eintrag.get("fakten_artikel", ""))
     elif post.get("eintrag_id") and typ in ("bild", "reel"):
         alle = [e["id"] for e in inhalte.posts_laden()]
         inhalte.als_benutzt_markieren(verlauf, typ, post["eintrag_id"], alle)
@@ -295,7 +295,7 @@ def _cloudflare_ok():
     return False, "Cloudflare lehnt den API-Token ab. Account-ID und Token prüfen (Anleitung: Cloudflare)"
 
 
-NAMEN = {"zitate": "Text-Reels", "geschichten": "Story-Reels", "eigene_medien": "Reels aus eigenen Medien"}
+NAMEN = {"zitate": "Text-Reels", "geschichten": "Sprecher-Reels", "eigene_medien": "Reels aus eigenen Medien"}
 
 
 def pruefen():
@@ -332,8 +332,10 @@ def pruefen():
     braucht_text = cfg is not None and (art == "zitate" or cfg["plan"]["bild"]["aktiv"]
                                          or (art == "eigene_medien" and cfg["eigene_medien"]["text_einblenden"]))
     braucht_cf = False
-    if braucht_text and cfg["texte"]["quelle"] == "ki":
-        ok("Texte: die KI schreibt jeden Tag neue, passend zu deiner Beschreibung")
+    if braucht_text and cfg["texte"]["quelle"] in ("ki", "zitate", "fakten"):
+        ok("Texte: die KI schreibt jeden Tag neue, passend zu deiner Beschreibung" if cfg["texte"]["quelle"] == "ki"
+           else "Texte: echte Zitate mit Quelle, geprüft (Lutherbibel 1912, Wikiquote)" if cfg["texte"]["quelle"] == "zitate"
+           else "Texte: Fakten aus Wikipedia, mit Faktencheck und Quelle im Bild")
         braucht_cf = True
     elif braucht_text:
         try:
@@ -353,7 +355,9 @@ def pruefen():
             (ok if n else schlecht)(f"inhalte/geschichten.txt: {n} eigene Texte" if n else
                                     "inhalte/geschichten.txt enthält noch keinen Text")
         else:
-            ok({"wikipedia": "Quelle: Wikipedia (wahre Geschichten mit Quellenangabe)",
+            ok({"wissen": "Quelle: Wissen und Tipps zu deinem Thema",
+                "wikipedia": "Quelle: Wikipedia (wahre Geschichten mit Quellenangabe)",
+                "nacherzaehlung": "Quelle: bekannte Erzählungen, nacherzählt (Bibel im Wortlaut der Lutherbibel 1912)",
                 "fiktion": "Quelle: Fiktion (frei erfundene Geschichten, in der Caption gekennzeichnet)"}[quelle])
         braucht_cf = True
         if cfg["geschichten"]["text_ki"] == "claude":
@@ -435,15 +439,16 @@ def vorschau(cfg, sprecher_fabrik=None):
     teile = ["## Vorschau (nichts wurde gepostet)", "", "Unten unter **Artifacts** → *vorschau* herunterladen.", ""]
     for typ in typen:
         post = erstellen(cfg, typ, verlauf, sprecher_fabrik=sprecher_fabrik)
-        teile.append(f"- **{typ}**: {post['text'][:120]}")
+        autor = (post.get("eintrag") or {}).get("autor")
+        teile.append(f"- **{typ}**: {post['text'][:240]}" + (f" — {autor}" if autor else ""))
         if post["caption"]:
-            teile.append(f"  Caption: `{post['caption'][:140].replace(chr(10), ' ')}…`")
+            teile.append(f"  Caption: `{post['caption'][:400].replace(chr(10), ' ')}`")
         if post.get("skript"):
             sk = post["skript"]
             zeilen = [sk["hook"]["text"]] + [x["text"] for x in sk["szenen"]] + [sk["frage"]]
             teile.append("  Skript: " + " / ".join(z.replace("*", "") for z in zeilen))
             if sk.get("quelle"):
-                teile.append(f"  Quelle: {sk['quelle']}")
+                teile.append(f"  Quelle: {sk['quelle']} {sk.get('quelle_projekt', '')}".rstrip())
         if "farbverlauf" in post.get("bildquellen", []):
             teile.append("  ⚠️ Einige KI-Bilder fehlten und wurden durch Farbverläufe ersetzt.")
     _zusammenfassung("\n".join(teile))
@@ -492,7 +497,32 @@ def verlauf_sichern():
 
 # ---------------------------------------------------------------- lauf
 
+def kit_aktualisieren():
+    from . import kit_update
+
+    alt, neu, workflow_neu = kit_update.aktualisieren()
+    if os.environ.get("GITHUB_ACTIONS"):
+        for _ in range(3):
+            if _git("pull", "-q", "--rebase", check=False).returncode == 0 and _git("push", "-q", check=False).returncode == 0:
+                break
+            time.sleep(5)
+        else:
+            raise KitFehler("Das Update ließ sich nicht speichern (push fehlgeschlagen). Bitte kit-update erneut starten.")
+    zeilen = [f"Kit aktualisiert: Version {alt} → {neu}. Deine Einstellungen und Inhalte sind unverändert.",
+              "Neue Optionen stehen in hilfe/einstellungen-vorlage.yml (ohne Eintrag gelten Standardwerte).",
+              "Als Nächstes: Aktion setup-pruefen starten."]
+    if workflow_neu:
+        zeilen.insert(1, "WICHTIG: Auch die Workflow-Datei hat sich geändert. Öffne hilfe/autopilot.yml, kopiere den "
+                         "ganzen Inhalt und ersetze damit .github/workflows/autopilot.yml (Stift → alles markieren → "
+                         "einfügen → Commit changes). Das darf GitHub aus Sicherheitsgründen nicht automatisch tun.")
+    print("\n".join(zeilen))
+    _zusammenfassung("## Kit-Update\n\n" + "\n\n".join(zeilen))
+    return 0
+
+
 def lauf(aktion, bereitstellen=None):
+    if aktion == "kit-update":
+        return kit_aktualisieren()
     if aktion == "setup-pruefen":
         ergebnis = pruefen()
         verlauf_sichern()
@@ -501,6 +531,21 @@ def lauf(aktion, bereitstellen=None):
     if aktion == "vorschau":
         vorschau(cfg)
         return 0
+    if aktion == "bildstile":
+        from . import ki_bilder
+
+        cfg = laden()
+        try:  # Motiv passend zum eigenen Thema, sonst ein neutrales Beispiel
+            cfg = mit_profil(cfg, inhalte.verlauf_laden())
+        except KitFehler as exc:
+            print(f"Profil nicht verfügbar ({exc}), nehme Beispielmotiv")
+        motiv = cfg.get("bildmotiv") or ki_bilder.STIL_PROBE_MOTIV
+        ok = ki_bilder.stilproben(AUSGABE, motiv)
+        if ok and os.environ.get("GITHUB_ACTIONS"):
+            (bereitstellen or medien_bereitstellen)()
+            repo = os.environ.get("GITHUB_REPOSITORY", "")
+            print(f"Ansehen: https://github.com/{repo}/tree/media (Bilder antippen) oder unten bei Artifacts.")
+        return 0 if ok else 1
     if aktion == "stimmproben":
         from . import sprecher
 

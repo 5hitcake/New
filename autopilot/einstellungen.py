@@ -19,7 +19,7 @@ STIMMEN = os.path.join(ROOT, ".stimmen")  # Download-Ordner für die Sprecher-St
 WOCHENTAGE = ["mo", "di", "mi", "do", "fr", "sa", "so"]
 TYPEN = ("bild", "reel", "story")
 INHALTSARTEN = ("zitate", "geschichten", "eigene_medien")
-QUELLEN = ("wikipedia", "fiktion", "eigene_texte")
+QUELLEN = ("wissen", "wikipedia", "nacherzaehlung", "fiktion", "eigene_texte")
 BILDSTILE = ("ki_mit_text", "ki_ohne_text", "text", "eigene_fotos")
 EIGENE_TEXTE = os.path.join(ROOT, "inhalte", "geschichten.txt")
 
@@ -148,15 +148,29 @@ def pruefen(roh):
         raise KitFehler("geschichten → sprechtempo muss zwischen 0.6 und 1.5 liegen.")
     t = roh.get("texte") or {}
     texte_quelle = str(t.get("quelle", "datei")).strip().lower()
-    if texte_quelle not in ("datei", "ki"):
-        raise KitFehler("texte → quelle muss \"datei\" oder \"ki\" sein.")
+    if texte_quelle not in ("datei", "ki", "zitate", "fakten"):
+        raise KitFehler("texte → quelle muss \"ki\", \"fakten\", \"zitate\" oder \"datei\" sein.")
     texte_ki = str(t.get("text_ki", "cloudflare")).strip().lower()
     if texte_ki not in ("cloudflare", "claude"):
         raise KitFehler("texte → text_ki muss \"cloudflare\" oder \"claude\" sein.")
-    if texte_quelle == "ki" and not str(t.get("thema", "")).strip() and not beschreibung:
+    if texte_quelle in ("ki", "zitate", "fakten") and not str(t.get("thema", "")).strip() and not beschreibung:
         raise KitFehler("Beschreibe deinen Account in einstellungen.yml unter account → beschreibung "
                         "(oder trag bei texte → thema ein Thema ein). Daraus schreibt die KI die Texte.")
     bp = roh.get("bildpost") or {}
+    from .ki_bilder import STILE
+
+    anbieter = str(roh.get("ki_anbieter") or "").strip().lower()
+    if anbieter == "pollinations":  # nur zum Testen/Ausweichen: Text und Bilder über pollinations.ai
+        os.environ["KIT_TEXT_KI"] = os.environ["KIT_BILD_KI"] = "pollinations"
+    modell = str(roh.get("ki_textmodell") or "").strip()
+    if modell:
+        os.environ["KIT_TEXT_MODELL"] = modell if modell.startswith("@cf/") else f"@cf/{modell}"
+
+    look = str((roh.get("account") or {}).get("bildstil", "auto") or "auto").strip().lower()
+    look = look.replace("ö", "oe").replace("ü", "ue").replace("ä", "ae").replace("3d-animation", "3d")
+    if look != "auto" and look not in STILE:
+        raise KitFehler(f"account → bildstil '{look}' gibt es nicht. Erlaubt: auto, {', '.join(STILE)}.")
+    look_prompt = STILE[look][1] if look != "auto" else ""
     bildstil_post = str(bp.get("stil", "text")).strip().lower()
     if bildstil_post not in BILDSTILE:
         raise KitFehler(f"bildpost → stil '{bildstil_post}' gibt es nicht. Erlaubt: {', '.join(BILDSTILE)}.")
@@ -182,7 +196,7 @@ def pruefen(roh):
             "suchbegriffe": [str(x) for x in g.get("suchbegriffe") or []],
             "suchbegriffe_englisch": [str(x) for x in g.get("suchbegriffe_englisch") or []],
             "startartikel": [str(x) for x in g.get("startartikel") or []],
-            "bildstil": str(g.get("bildstil", "")).strip(),
+            "bildstil": str(g.get("bildstil", "")).strip() or look_prompt,
             "akzentfarbe": _farbe(g.get("akzentfarbe", "#E5484D"), "geschichten → akzentfarbe"),
             "sprecher": sprecher,
             "sprechtempo": tempo,
@@ -203,7 +217,8 @@ def pruefen(roh):
         },
         "beschreibung": beschreibung,
         "bildpost": bildstil_post,
-        "bildstil": str(bp.get("bildstil", "")).strip(),
+        "bildstil": str(bp.get("bildstil", "")).strip() or look_prompt,
+        "bild_look": look,
         "bildmotiv": str(bp.get("motiv", "")).strip(),
         "mindestdauer": mindestdauer,
         "instagram_name": name,
@@ -234,3 +249,12 @@ def cloudflare_hinweis():
     return (f"Auf GitHub fehlt das Secret {' und '.join(fehlt)} (oder es ist leer). Name genau so schreiben, "
             "ohne Leerzeichen, und den Wert einfügen. Anleitung: Rubrik 07 Cloudflare.")
 
+
+
+KONTINGENT_HINWEIS = ("Das kostenlose Tageskontingent der Cloudflare-KI ist für heute aufgebraucht (meist durch viele "
+                      "Testläufe am selben Tag). Es wird um 0 Uhr UTC zurückgesetzt (1 Uhr deutscher Zeit). "
+                      "Der Autopilot versucht es danach automatisch erneut.")
+
+
+def kontingent_leer(antwort_text):
+    return "daily free allocation" in (antwort_text or "")

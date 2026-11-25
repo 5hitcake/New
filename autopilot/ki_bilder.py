@@ -11,7 +11,31 @@ import time
 import requests
 from PIL import Image
 
-OHNE_TEXT = "no text, no letters, no words, no signs, no writing, no logos, blank surfaces, no blood, no red stains"
+# Wichtig: Diese Bild-KIs kennen keine Verneinung. Was im Text vorkommt ("no blood"), malen sie eher hinein.
+# Deshalb nur beschreiben, was man sehen will.
+
+# Bildstile zur Auswahl (account → bildstil). Cloudflare hat keine fertigen Stil-Voreinstellungen,
+# der Stil wird über die Bildbeschreibung gesteuert. Bewusst ohne Namen von Studios oder Künstlern.
+STILE = {
+    "foto": ("Realistisch (Foto)", "realistic photograph, natural light, high detail, 35mm lens"),
+    "kino": ("Kinofilm", "cinematic film still, dramatic lighting, shallow depth of field, color graded"),
+    "anime": ("Anime, handgezeichnet", ("hand-drawn anime illustration, soft painted backgrounds, gentle pastel "
+                                       "colors, whimsical and warm, detailed scenery")),
+    "comic": ("Comic", "comic book illustration, bold black ink outlines, flat vibrant colors, halftone shading"),
+    "3d": ("3D-Animation", "3D animated movie style, soft rounded shapes, warm global illumination, colorful, cute"),
+    "aquarell": ("Aquarell", "watercolor painting, soft washes, visible paper texture, delicate colors"),
+    "oelgemaelde": ("Ölgemälde", "classical oil painting, visible brush strokes, rich deep colors, museum quality"),
+    "skizze": ("Bleistiftskizze", "detailed pencil sketch, graphite on paper, cross-hatching, monochrome"),
+    "pixel": ("Pixel-Art", ("8-bit pixel art, large clearly visible square pixels, low resolution retro video game "
+                            "scene, limited color palette")),
+    "flach": ("Flache Illustration", "flat vector illustration, minimal clean shapes, limited color palette, modern"),
+    "vintage": ("Vintage-Foto", "vintage 1970s photograph, film grain, faded warm colors, light leaks"),
+    "duester": ("Dunkel und düster", "dark moody photograph, low key lighting, fog, desaturated cold colors"),
+    "fantasy": ("Fantasy", "epic fantasy concept art, magical glowing atmosphere, highly detailed, dramatic sky"),
+}
+STIL_PROBE_MOTIV = "a small cozy house by a lake with mountains behind it, a cat sitting on the porch, evening"
+
+OHNE_TEXT = "clean composition, plain unmarked surfaces, no text"
 MODELLE = ["@cf/black-forest-labs/flux-1-schnell", "@cf/black-forest-labs/flux-2-klein-4b"]
 BREITE, HOEHE = 768, 1344
 
@@ -25,7 +49,7 @@ def _bild_aus(resp):
     return base64.b64decode(bild)
 
 
-def erzeugen(prompt, http=requests, schlafen=time.sleep):
+def _erzeugen_cloudflare(prompt, http=requests, schlafen=time.sleep):
     """Gibt ein PIL-Bild zurück oder None, wenn kein Modell geliefert hat."""
     konto = os.environ.get("CLOUDFLARE_ACCOUNT_ID", "").strip()
     token = os.environ.get("CLOUDFLARE_API_TOKEN", "").strip()
@@ -46,6 +70,9 @@ def erzeugen(prompt, http=requests, schlafen=time.sleep):
                                      json={"prompt": prompt, "steps": 4}, timeout=180)
                 if resp.ok:
                     return Image.open(io.BytesIO(_bild_aus(resp))).convert("RGB")
+                if "daily free allocation" in resp.text:
+                    print("Bild-KI: Tageskontingent von Cloudflare aufgebraucht, nehme Farbverlauf.")
+                    return None
                 if resp.status_code not in (429, 500, 502, 503, 504):
                     print(f"Bild-KI {modell}: HTTP {resp.status_code}")
                     break
@@ -53,3 +80,63 @@ def erzeugen(prompt, http=requests, schlafen=time.sleep):
                 print(f"Bild-KI {modell}: {type(exc).__name__}")
             schlafen(8 * (versuch + 1))
     return None
+
+
+def _erzeugen_pollinations(prompt, http=requests):
+    """Optionaler Ersatz: pollinations.ai (Secret POLLINATIONS_API_KEY). None, wenn nicht eingerichtet."""
+    schluessel = os.environ.get("POLLINATIONS_API_KEY", "").strip()
+    if not schluessel:
+        return None
+    from urllib.parse import quote
+
+    for versuch in range(2):
+        try:
+            resp = http.get(f"https://gen.pollinations.ai/image/{quote(prompt[:1500], safe='')}",
+                            params={"model": "flux", "width": BREITE, "height": HOEHE, "nologo": "true"},
+                            headers={"Authorization": f"Bearer {schluessel}"}, timeout=180)
+            if resp.ok and resp.headers.get("Content-Type", "").startswith("image/"):
+                return Image.open(io.BytesIO(resp.content)).convert("RGB")
+            print(f"Bild-KI Pollinations: HTTP {resp.status_code}")
+        except (requests.RequestException, OSError) as exc:
+            print(f"Bild-KI Pollinations: {type(exc).__name__}")
+        time.sleep(10)
+    return None
+
+
+def erzeugen(prompt, *args, **kwargs):
+    """Erst Cloudflare, bei Ausfall oder leerem Kontingent Pollinations (falls eingerichtet)."""
+    if os.environ.get("KIT_BILD_KI") == "pollinations":
+        return _erzeugen_pollinations(prompt if "no text" in prompt else f"{prompt}, {OHNE_TEXT}") or \
+            _erzeugen_cloudflare(prompt, *args, **kwargs)
+    return _erzeugen_cloudflare(prompt, *args, **kwargs) or _erzeugen_pollinations(
+        prompt if "no text" in prompt else f"{prompt}, {OHNE_TEXT}")
+
+
+def stilproben(ordner, motiv=STIL_PROBE_MOTIV, erzeugen_fn=None):
+    """Erzeugt dasselbe Motiv in allen Bildstilen, mit Namen im Bild. Gibt die Dateien zurück."""
+    from PIL import ImageDraw, ImageFont
+
+    from .design import _schrift
+
+    erzeugen_fn = erzeugen_fn or erzeugen
+    os.makedirs(ordner, exist_ok=True)
+    fertig = []
+    for schluessel, (name, stil) in STILE.items():
+        bild = erzeugen_fn(f"{motiv}, {stil}")
+        if bild is None:
+            print(f"Bildstil {schluessel}: kein Bild")
+            continue
+        bild.thumbnail((640, 640))
+        zeichnen = ImageDraw.Draw(bild)
+        try:
+            font = _schrift("Poppins-Bold", 30)
+        except Exception:  # noqa: BLE001
+            font = ImageFont.load_default()
+        text = f"{name}  ·  {schluessel}"
+        zeichnen.rectangle([0, bild.height - 56, bild.width, bild.height], fill=(0, 0, 0))
+        zeichnen.text((16, bild.height - 48), text, fill=(255, 255, 255), font=font)
+        ziel = os.path.join(ordner, f"bildstil_{schluessel}.jpg")
+        bild.save(ziel, quality=85)
+        fertig.append(ziel)
+        print(f"Bildstil {schluessel} erstellt")
+    return fertig

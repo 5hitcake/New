@@ -51,6 +51,9 @@ def ordner(tmp_path, monkeypatch):
     medien.mkdir()
     monkeypatch.setattr(reels, "MEDIEN", str(medien))
     monkeypatch.setattr(cli.reel, "MUSIK", str(tmp_path / "musik"))
+    # feste Uhrzeit (Sonntag 18 Uhr), damit Tests nicht vom Wochentag abhängen
+    import datetime as dt
+    monkeypatch.setattr(cli, "_jetzt", lambda cfg: dt.datetime(2026, 11, 22, 18, 0, tzinfo=cfg["zeitzone"]))
     return tmp_path
 
 
@@ -153,7 +156,7 @@ def test_ki_korrektur_runde():
 def test_benutzte_und_abgelehnte_artikel_kommen_nicht_wieder():
     g = basis("geschichten")["geschichten"]
     verlauf = {"wiki_benutzt": ["Mary Celeste"]}
-    with pytest.raises(KitFehler, match="Keine passende Geschichte"):
+    with pytest.raises(KitFehler, match="Keine passende Wikipedia-Geschichte"):
         geschichten.neue_geschichte(g, verlauf, http=Wiki(), chat=lambda n, m: json.dumps(SKRIPT))
 
 

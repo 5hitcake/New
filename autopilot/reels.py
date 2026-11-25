@@ -100,17 +100,41 @@ def geschichten_reel(cfg, skript, ziel, musik=None, sprecher=None, bild_quelle=N
 
 
 HERKUNFT = {
+    "wissen": "Bilder KI-generiert.",
+    "nacherzaehlung": "Nacherzählt nach {quelle}. Bilder KI-generiert.",
     "wikipedia": "Quelle: Wikipedia ({titel}). Bilder KI-generiert.",
     "fiktion": "Fiktive Geschichte, frei erfunden. Bilder KI-generiert.",
     "eigene_texte": "Bilder KI-generiert.",
 }
 
 
+def _herkunft(skript):
+    art = skript.get("quelle_art", "wikipedia")
+    if art == "nacherzaehlung":
+        q = skript.get("quelle") or ""
+        if skript.get("quelle_projekt") == "wikipedia" and skript.get("quelle_artikel"):
+            herkunft = f"{q}, " if q and q.lower() not in skript.get("titel", "").lower() else ""
+            return f"Nacherzählt ({herkunft}Inhalt nach Wikipedia: {skript['quelle_artikel']}). Bilder KI-generiert."
+        if skript.get("quelle_projekt") == "wikisource":
+            zusatz = q if q and q.lower() not in skript.get("titel", "").lower() else skript.get("titel", "")
+            return HERKUNFT["nacherzaehlung"].format(quelle=f"{zusatz} (Originaltext: Wikisource)")
+        if q and q.lower() not in skript.get("titel", "").lower():
+            from . import bibel
+            q = f"{q} ({bibel.UEBERSETZUNG})" if bibel.ist_stelle(q) else q
+            return HERKUNFT["nacherzaehlung"].format(quelle=q)
+        return "Nacherzählt nach der Überlieferung. Bilder KI-generiert."
+    if art == "wissen" and skript.get("quelle"):
+        if skript.get("quelle_projekt") == "wikivoyage":
+            return f"Infos: Wikivoyage ({skript['quelle']}). Bilder KI-generiert."
+        return f"Fakten: Wikipedia ({skript['quelle']}). Bilder KI-generiert."
+    return HERKUNFT.get(art, "").format(titel=skript.get("titel", ""))
+
+
 def geschichten_caption(cfg, skript, zufall=random):
     hook = skript["hook"]["text"].replace("*", "")
     tags = list(dict.fromkeys(skript.get("hashtags", []) + cfg["geschichten"]["hashtags"]))[:8]
     teile = [hook, "", skript["frage"].replace("*", "") + " 👇", "",
-             HERKUNFT.get(skript.get("quelle_art", "wikipedia"), "").format(titel=skript.get("titel", "")),
+             _herkunft(skript),
              "", " ".join(tags)]
     return "\n".join(teile).strip()[:2200]
 

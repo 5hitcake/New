@@ -1,10 +1,13 @@
-"""Schreibt Reel-Skripte. Drei Quellen (einstellungen.yml → geschichten → quelle):
+"""Schreibt Reel-Skripte für gesprochene Reels. Quellen (einstellungen.yml → geschichten → quelle):
 
-- wikipedia:    wahre Geschichten, Fakten nur aus Wikipedia (deutsch oder englisch)
-- fiktion:      die KI erfindet die Geschichte frei zum Thema (wird als fiktiv gekennzeichnet)
-- eigene_texte: aus deinen eigenen Texten in inhalte/geschichten.txt
+- wissen:         Tipps, Anleitungen und Fakten zu deinem Thema (für fast jeden Account passend)
+- wikipedia:      wahre Geschichten, Fakten nur aus Wikipedia. Die KI schlägt passende Artikel vor.
+- nacherzaehlung: bekannte überlieferte Geschichten nacherzählt (Bibel, Sagen, Märchen, Mythen, Fabeln).
+                  Bibelgeschichten werden aus dem Originaltext der Lutherbibel 1912 erzählt.
+- fiktion:        die KI erfindet die Geschichte frei zum Thema (wird als fiktiv gekennzeichnet)
+- eigene_texte:   aus deinen eigenen Texten in inhalte/geschichten.txt
 
-Eine Text-KI macht daraus ein Skript: Hook + 6 Szenen + Frage an die Zuschauer, jede Szene mit
+Eine Text-KI macht daraus ein Skript: Hook + Szenen + Frage an die Zuschauer, jede Szene mit
 englischer Bildbeschreibung. Kostenlos über Cloudflare Workers AI; optional über die Claude-API.
 """
 import hashlib
@@ -19,6 +22,18 @@ import requests
 from .einstellungen import EIGENE_TEXTE, KitFehler
 
 WIKI_API = "https://{lang}.wikipedia.org/w/api.php"
+def _cf_oder_pollinations(nachrichten, modell):
+    if os.environ.get("KIT_TEXT_KI") == "pollinations":
+        return _pollinations_chat(nachrichten)
+    return _cloudflare_chat(nachrichten, modell)
+
+
+def textmodelle():
+    """Reihenfolge der kostenlosen Text-Modelle. einstellungen.yml → ki_textmodell stellt eines nach vorn."""
+    wunsch = os.environ.get("KIT_TEXT_MODELL", "").strip()
+    return ([wunsch] if wunsch else []) + [m for m in CF_TEXT_MODELLE if m != wunsch]
+
+
 CF_TEXT_MODELLE = [
     "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
     "@cf/zai-org/glm-4.7-flash",
@@ -79,11 +94,14 @@ def artikel(schluessel, http=HTTP):
     return praefix + seite["title"], seite["title"], text[:MAX_ZEICHEN], seite.get("fullurl", ""), andere
 
 
-def kandidaten(g, benutzt, http=HTTP, zufall=random):
-    """Erst die Startartikel, dann endlos über die Suchbegriffe."""
+def kandidaten(g, benutzt, http=HTTP, zufall=random, vorschlaege=None):
+    """Erst die Startartikel, dann die Artikel-Vorschläge der KI, dann über die Suchbegriffe."""
     for s in g["startartikel"]:
         if s not in benutzt:
             yield s
+    for titel in (vorschlaege() if vorschlaege else []):
+        if titel not in benutzt:
+            yield titel
     suchen_liste = [(b, "de") for b in g["suchbegriffe"]] + [(b, "en") for b in g["suchbegriffe_englisch"]]
     for _ in range(8):
         if not suchen_liste:
@@ -97,13 +115,41 @@ def kandidaten(g, benutzt, http=HTTP, zufall=random):
 
 # ---------------------------------------------------------------- Text-KI
 
-KOPF = """Du schreibst Skripte für ca. 45 Sekunden lange Instagram-Reels auf Deutsch. Ein Sprecher
+KOPF = """Du schreibst Skripte für kurze Instagram-Reels auf Deutsch. Ein Sprecher
 liest den Text vor, der Text steht auch im Bild. Zu jeder Szene wird ein KI-Bild erzeugt.
 
 Thema des Accounts: {thema}
 {beschreibung}"""
 
 QUELLEN_REGELN = {
+    "wissen_text": """
+Das Reel vermittelt Wissen. WICHTIGSTE REGEL: Alle Fakten, Zahlen und Namen stammen aus dem mitgelieferten
+Artikel (Wikipedia oder Reiseführer Wikivoyage). Nichts dazuerfinden. Erkläre für Laien: keine Fachbegriffe
+wie "Campanium" oder "Orbitalfenster", sondern einfache Worte ("vor etwa 75 Millionen Jahren", "Augenhöhle"). Antworte nur dann mit "geeignet": false,
+wenn der Artikel fast keine Fakten enthält, sonst passe das Thema an den Artikel an. Passt das angegebene Thema nicht zum Artikel,
+nimm stattdessen die überraschendsten, anschaulichsten Fakten AUS DEM ARTIKEL und gib dem Reel einen passenden
+"titel". Formuliere nie einen Irrtum als Tatsache. Gib dem Reel einen kurzen "titel".
+""",
+    "wissen": """
+Das Reel vermittelt nützliches Wissen zum Thema des Nutzers: Tipps, eine kurze Anleitung oder überraschende
+Fakten. Formuliere nur, was stimmt: nie einen Irrtum oder eine Vermutung als Tatsache. Nur korrekte, allgemein anerkannte Informationen. Erfinde keine Studien,
+Zahlen oder Zitate. Keine Heilversprechen, keine Finanz- oder Rechtsberatung, nichts Gefährliches.
+Konkret und praktisch statt allgemein: lieber "Stell dein Handy abends auf Graustufen" als "Achte auf dich".
+Gib dem Reel einen kurzen "titel".
+""",
+    "nacherzaehlung": """
+Erzähle eine bekannte, überlieferte Geschichte nach (z.B. aus der Bibel, aus Sagen, Märchen, Mythen,
+Fabeln oder Legenden). Bleib nah an der überlieferten Fassung: gleiche Figuren, gleiche Handlung, gleiches
+Ende. Erfinde nichts Wesentliches dazu. Erzähle in heutigem, lebendigem Deutsch, respektvoll gegenüber
+Glauben und Kultur. Bist du dir bei der Handlung nicht sicher, antworte mit "geeignet": false.
+Gib der Geschichte einen kurzen "titel".
+""",
+    "nacherzaehlung_text": """
+Erzähle die Geschichte aus dem mitgelieferten Text nach (Originaltext oder Inhaltsangabe). WICHTIGSTE REGEL:
+Nur Inhalte aus diesem Text, nichts dazuerfinden. Namen, Orte und Ablauf genau wie im Text. Erzähle in heutigem, lebendigem Deutsch (nicht in altertümlicher Sprache),
+respektvoll. Eine kurze, bekannte Formulierung aus dem Original darf als wörtliches Zitat vorkommen.
+Gib der Geschichte einen kurzen "titel".
+""",
     "wikipedia": """
 WICHTIGSTE REGEL: Verwende AUSSCHLIESSLICH Fakten aus dem Wikipedia-Artikel. Erfinde keine Namen,
 Zahlen, Daten, Zitate oder Details. Ist etwas ungeklärt oder umstritten, sag das klar.
@@ -141,12 +187,10 @@ Antworte NUR mit JSON in genau diesem Format:
 """
 
 REGELN = """Regeln:
-- hook.text: 1 packender Satz, höchstens 14 Wörter, aus DERSELBEN Geschichte (gleicher Ort, gleiche
+- hook.text: 1 packender, ganzer Satz mit 6 bis 14 Wörtern, aus DERSELBEN Geschichte (gleicher Ort, gleiche
   Figur). Am besten ein Detail aus der Wendung, das neugierig macht, ohne sie zu verraten.
-- {szenen} Szenen mit je 12 bis 18 Wörtern, jede Szene ein ganzer, bildhafter Satz. Bogen: Ort und Zeit, Ereignis, überraschendes Detail,
-  Erklärungen oder Theorien, Auflösung oder offenes Ende. Kein Fülltext.
-  Die LETZTE Szene ist die Wendung: etwas Unerwartetes, das alles davor in neuem Licht zeigt.
-  Nur einfache, natürliche deutsche Wörter, die man so auch sagen würde.
+- {szenen} Szenen mit je 12 bis 18 Wörtern, jede Szene ein ganzer, bildhafter Satz. {bogen}
+  Kein Fülltext. Nur einfache, natürliche deutsche Wörter, die man so auch sagen würde.
 - "frage": kurze Frage an die Zuschauer, höchstens 8 Wörter, endet mit "?". Sie bezieht sich auf etwas,
   das in den Szenen wirklich vorkommt. Alles, was Hook und Frage ankündigen (z.B. ein Schrei, ein Fluch),
   muss in der Geschichte auch auftauchen.
@@ -159,10 +203,50 @@ REGELN = """Regeln:
 - "hashtags": 2 bis 3 passende deutsche Hashtags."""
 
 
+BOGEN = {
+    "wissen": ("Aufbau: jede Szene EIN Tipp, Schritt oder Fakt, in sinnvoller Reihenfolge. Die letzte Szene "
+               "fasst zusammen oder bringt den wichtigsten Tipp. Der Hook macht neugierig (überraschende "
+               "Aussage oder Frage). Die Frage lädt zum Mitmachen ein: bei Tipps z.B. welchen man zuerst ausprobiert, bei Fakten "
+               "eine Staun- oder Meinungsfrage, die zum Inhalt passt."),
+    "nacherzaehlung": ("Bogen wie im Original: Ausgangslage, Wendepunkt, Höhepunkt, Ende. Die letzte Szene "
+                       "bringt das Ende oder die Lehre der Geschichte."),
+    "geschichte": ("Bogen: Ort und Zeit, Ereignis, überraschendes Detail, Erklärungen oder Theorien, Auflösung "
+                   "oder offenes Ende. Die LETZTE Szene ist die Wendung: etwas Unerwartetes, das alles davor "
+                   "in neuem Licht zeigt."),
+}
+
+
 def system_prompt(thema, quelle="wikipedia", szenen=6, beschreibung=""):
     zusatz = f"Beschreibung des Accounts: {beschreibung}\n" if beschreibung else ""
+    bogen = BOGEN["wissen"] if quelle.startswith("wissen") else (
+        BOGEN["nacherzaehlung"] if quelle.startswith("nacherzaehlung") else BOGEN["geschichte"])
     text = KOPF.format(thema=thema, beschreibung=zusatz) + QUELLEN_REGELN[quelle] + FORMAT + REGELN
-    return text.replace("{szenen}", str(szenen))
+    return text.replace("{szenen}", str(szenen)).replace("{bogen}", bogen)
+
+
+def _anfuehrungszeichen_reparieren(text):
+    """Setzt unmaskierte " innerhalb von Texten in JSON zu \" um (häufiger KI-Fehler)."""
+    aus, im_text, i = [], False, 0
+    while i < len(text):
+        c = text[i]
+        if c == "\\" and im_text:
+            aus.append(text[i:i + 2])
+            i += 2
+            continue
+        if c == '"':
+            if not im_text:
+                im_text = True
+            else:
+                rest = text[i + 1:].lstrip()
+                if not rest or rest[0] in ",:}]":
+                    im_text = False
+                else:
+                    aus.append('\\"')
+                    i += 1
+                    continue
+        aus.append(c)
+        i += 1
+    return "".join(aus)
 
 
 def _json_aus(text):
@@ -170,7 +254,12 @@ def _json_aus(text):
     a, b = text.find("{"), text.rfind("}")
     if a < 0 or b < 0:
         raise ValueError("keine JSON-Antwort")
-    return json.loads(text[a:b + 1])
+    roh = text[a:b + 1]
+    try:
+        return json.loads(roh)
+    except json.JSONDecodeError:
+        repariert = re.sub(r",\s*([}\]])", r"\1", _anfuehrungszeichen_reparieren(roh))
+        return json.loads(repariert)
 
 
 def _woerter(text):
@@ -185,6 +274,10 @@ def pruefen(skript, soll=6):
         p.append("hook braucht text und bild")
     elif _woerter(hook["text"]) > 16:
         p.append("hook ist zu lang (max. 14 Wörter)")
+    elif re.search(r"[.!?]\s+\*?[\wÄÖÜäöüß-]+\*?[.!?]?$", hook["text"]):
+        p.append("hook: am Ende hängt ein einzelnes Wort, bitte nur der Satz")
+    elif _woerter(hook["text"]) < 5:
+        p.append("hook ist zu kurz: ein ganzer, neugierig machender Satz mit 6 bis 14 Wörtern")
     szenen = skript.get("szenen") or []
     if not max(3, soll - 1) <= len(szenen) <= soll + 2:
         p.append(f"es müssen {soll} Szenen sein, nicht {len(szenen)}")
@@ -193,6 +286,9 @@ def pruefen(skript, soll=6):
             p.append(f"Szene {i} braucht text und bild")
         elif not 9 <= _woerter(s["text"]) <= 24:
             p.append(f"Szene {i} hat {_woerter(s['text'])} Wörter, nötig sind 12 bis 18")
+        elif re.search(r"[.!?]\s+\*?[\wÄÖÜäöüß-]+\*?[.!?]?$", s["text"]):
+            p.append(f"Szene {i}: am Ende hängt ein einzelnes Wort. Das Schlüsselwort im Satz mit *Sternchen* "
+                     "markieren, nicht extra anhängen")
     frage = str(skript.get("frage", ""))
     if not frage.endswith("?") or _woerter(frage) > 10:
         p.append("frage muss kurz sein und mit ? enden")
@@ -237,17 +333,46 @@ def _cloudflare_chat(nachrichten, modell, http=HTTP):
         raise KitFehler(cloudflare_hinweis())
     resp = http.post(f"https://api.cloudflare.com/client/v4/accounts/{konto}/ai/run/{modell}",
                      headers={"Authorization": f"Bearer {token}"}, timeout=180,
-                     json={"messages": nachrichten, "max_tokens": 2500, "temperature": 0.6})
+                     json={"messages": nachrichten, "max_tokens": 6000 if "gpt-oss" in modell else 2500,
+                           "temperature": 0.6})
     if resp.status_code in (401, 403) and "5035" not in resp.text:  # 5035 = Modell nur im Bezahl-Tarif
         raise KitFehler("Cloudflare lehnt den Zugang ab. Prüfe CLOUDFLARE_ACCOUNT_ID und ob der API-Token "
                         "die Berechtigung 'Workers AI' hat.")
     if not resp.ok:
+        from .einstellungen import KONTINGENT_HINWEIS, kontingent_leer
+        if kontingent_leer(resp.text):
+            if os.environ.get("POLLINATIONS_API_KEY", "").strip():
+                print("  Cloudflare-Kontingent leer, nehme Pollinations")
+                return _pollinations_chat(nachrichten)
+            raise KitFehler(KONTINGENT_HINWEIS)
         raise RuntimeError(f"{modell}: HTTP {resp.status_code} {resp.text[:200]}")
     ergebnis = resp.json().get("result", {})
     aus = ergebnis.get("response")
     if aus is None and ergebnis.get("choices"):
         aus = ergebnis["choices"][0]["message"]["content"]
+    if aus is None and isinstance(ergebnis.get("output"), list):  # Antwortformat mancher neuer Modelle
+        texte = [c.get("text", "") for o in ergebnis["output"] if o.get("type") == "message"
+                 for c in o.get("content") or [] if isinstance(c, dict)]
+        aus = "".join(texte) or None
     return json.dumps(aus, ensure_ascii=False) if isinstance(aus, (dict, list)) else (aus or "")
+
+
+POLLINATIONS_MODELL = "openai"
+
+
+def _pollinations_chat(nachrichten, modell=None, http=HTTP):
+    """Optional: Text über pollinations.ai (OpenAI-kompatibel, Secret POLLINATIONS_API_KEY)."""
+    schluessel = os.environ.get("POLLINATIONS_API_KEY", "").strip()
+    if not schluessel:
+        raise KitFehler("Für Pollinations fehlt das Secret POLLINATIONS_API_KEY.")
+    resp = http.post("https://gen.pollinations.ai/v1/chat/completions", timeout=180,
+                     headers={"Authorization": f"Bearer {schluessel}"},
+                     json={"model": os.environ.get("KIT_POLLINATIONS_MODELL") or POLLINATIONS_MODELL,
+                           "messages": nachrichten, "temperature": 0.6,
+                           "response_format": {"type": "json_object"}})
+    if not resp.ok:
+        raise RuntimeError(f"pollinations: HTTP {resp.status_code} {resp.text[:200]}")
+    return resp.json()["choices"][0]["message"]["content"] or ""
 
 
 def _claude_chat(nachrichten, http=HTTP):
@@ -266,13 +391,48 @@ def _claude_chat(nachrichten, http=HTTP):
     return "".join(b.get("text", "") for b in resp.json().get("content", []))
 
 
+GEPRUEFTE_QUELLEN = ("wikipedia", "wissen_text", "nacherzaehlung_text")
+
+FAKTENCHECK = """Du prüfst ein Reel-Skript gegen seinen Quelltext (Hook = 0, Szenen ab 1).
+Melde NUR echte inhaltliche Fehler: eine Zahl, ein Name, ein Ort, eine Zeitangabe, ein Ereignis oder eine
+Ursache, die im Quelltext anders steht oder frei erfunden ist, oder eine Behauptung, die der Quelltext
+ausdrücklich als falsch bezeichnet.
+KEIN Fehler sind: Vereinfachungen, lockere Formulierungen, Zuspitzungen für Social Media, fehlende
+Einschränkungen wie "nach Ansicht der Forscher" oder "etwa", Fragen, Tipps und allgemeines Weltwissen.
+Im Zweifel NICHT melden.
+Antworte NUR mit JSON: {"falsch": [Nummern], "gruende": ["kurz je Nummer"]}"""
+
+
+def faktencheck(skript, quelltext, chat, modell):
+    """Liste von Problemen (leer = alles durch die Quelle gedeckt)."""
+    zeilen = [f"0: {skript['hook']['text']}"] + [f"{i}: {x['text']}" for i, x in enumerate(skript["szenen"], 1)]
+    nachrichten = [{"role": "system", "content": FAKTENCHECK},
+                   {"role": "user", "content": "Quelltext:\n" + quelltext[:9000] + "\n\nSkript:\n" + "\n".join(zeilen)}]
+    try:
+        daten = _json_aus(chat(nachrichten, modell))
+    except KitFehler:
+        raise
+    except Exception:  # noqa: BLE001 - Prüfung nicht möglich, dann gilt das Skript
+        return []
+    falsch = [n for n in daten.get("falsch") or [] if isinstance(n, int)]
+    gruende = [str(x) for x in daten.get("gruende") or []]
+    return [f"Szene {n}: {gruende[i] if i < len(gruende) else 'nicht durch die Quelle gedeckt'}"
+            for i, n in enumerate(falsch)]
+
+
 def skript_schreiben(g, titel, text, chat=None, quelle="wikipedia"):
     """Gibt (skript, None) oder (None, Grund) zurück. Bei quelle="fiktion" ist text die Anregung."""
     englisch = bool(re.search(r"\b(the|and|was|were)\b", text[:2000])) and not re.search(
         r"\b(und|der|die|das)\b", text[:2000])
     hinweis = " Der Text ist englisch: schreibe trotzdem auf DEUTSCH und übersetze genau." if englisch else ""
-    if quelle == "fiktion":
+    if quelle in ("fiktion", "wissen", "nacherzaehlung"):
         nutzer = text
+    elif quelle == "wissen_text":
+        nutzer = (f'Ungefähres Thema (darf frei angepasst werden): {titel}\n'
+                  'Steht dazu nichts im Artikel, wähle einfach die staunenswertesten Fakten AUS DEM ARTIKEL '
+                  f'und gib dem Reel einen passenden neuen "titel".\n\nArtikel:\n\n{text}')
+    elif quelle == "nacherzaehlung_text":
+        nutzer = f'Originaltext "{titel}":\n\n{text}'
     elif quelle == "eigene_texte":
         nutzer = f'Text des Nutzers "{titel}".{hinweis}\n\n{text}'
     else:
@@ -284,7 +444,7 @@ def skript_schreiben(g, titel, text, chat=None, quelle="wikipedia"):
         if g["text_ki"] == "claude":
             modelle, chat = ["claude"], lambda n, _m: _claude_chat(n)
         else:
-            modelle, chat = CF_TEXT_MODELLE, _cloudflare_chat
+            modelle, chat = textmodelle(), _cf_oder_pollinations
     else:
         modelle = ["test"]
     fehler = []
@@ -302,6 +462,12 @@ def skript_schreiben(g, titel, text, chat=None, quelle="wikipedia"):
             if not skript.get("geeignet", True):
                 return None, f"passt nicht: {skript.get('grund', '')}"
             probleme = pruefen(skript, g.get("szenen", 6))
+            if not probleme and quelle in GEPRUEFTE_QUELLEN:
+                falsch = faktencheck(skript, text, chat, modell)
+                if falsch:
+                    print(f"  Faktencheck: {'; '.join(falsch)[:300]}")
+                    probleme = ["Diese Aussagen stimmen nicht mit dem Quelltext überein, nur Fakten aus dem Text "
+                                "verwenden: " + "; ".join(falsch)]
             if not probleme:
                 return aufraeumen(skript), None
             fehler.append(f"{modell}: {'; '.join(probleme[:2])}")
@@ -311,8 +477,210 @@ def skript_schreiben(g, titel, text, chat=None, quelle="wikipedia"):
     return None, "KI-Fehler: " + " | ".join(fehler[-3:])
 
 
+IDEEN = {
+    "wikipedia": ('Nenne {n} konkrete Titel von DEUTSCHEN Wikipedia-Artikeln (genau wie der Artikeltitel), über die '
+                  'man eine spannende kurze, wahre Geschichte erzählen kann und die genau zum Account passen. '
+                  'Nur einzelne Ereignisse, Orte, Fälle, Entdeckungen oder Erzählungen, keine Oberbegriffe '
+                  '(z.B. nicht "Bibel", sondern "Arche Noah"), keine Listen, keine lebenden Privatpersonen. '
+                  'JSON: {{"ideen": [{{"titel": "..."}}]}}'),
+    "nacherzaehlung": ('Nenne {n} bekannte, überlieferte Geschichten, die genau zur Beschreibung des Accounts '
+                       'passen (je nach Account aus Sagen, Märchen, Mythen, Fabeln, Legenden oder, nur bei '
+                       'Glaubens-Accounts, aus der Bibel). Bei Bibelgeschichten in "stelle" '
+                       'die genaue Bibelstelle (z.B. "Lukas 15,11-32" oder "1. Mose 6-9"), sonst die Herkunft '
+                       '(z.B. "Brüder Grimm", "griechische Mythologie", "Äsop"). Als "titel" den bekannten '
+                       'deutschen Titel (z.B. "Hänsel und Gretel", "Der Rattenfänger von Hameln"). '
+                       'JSON: {{"ideen": [{{"titel": "...", "stelle": "..."}}]}}'),
+    "wissen": ('Nenne {n} konkrete Themen für je ein kurzes Wissens-Reel, die genau zum Account passen: Tipps, '
+               'kleine Anleitungen oder überraschende Fakten. Passe die Art an das Thema an: bei Sachthemen '
+               'staunenswerte Fakten über etwas Konkretes (z.B. "Wie schnell war der Tyrannosaurus?"), bei '
+               'praktischen Themen Tipps (z.B. "3 Fehler beim Kartoffeln kochen"). Keine Formate wie "Irrtümer" '
+               'oder "Mythos und Wahrheit", keine Fragen an den Nutzer über seine eigenen Fotos oder Dinge. Geht es um Sachwissen (z.B. Tiere, Geschichte, Natur, Technik, '
+               'Weltraum), trage in "wikipedia" den Titel des DEUTSCHEN Wikipedia-Artikels ein, in dem die Fakten '
+               'stehen (z.B. "Tyrannosaurus"). Geht es um ein Reiseziel, trage in "reiseziel" den Ort oder die '
+               'Region ein (z.B. "Lissabon"). Bei praktischen Tipps ohne passenden Artikel beides leer lassen. '
+               'JSON: {{"ideen": [{{"titel": "...", "wikipedia": "Artikeltitel oder leer", '
+               '"reiseziel": "Ort oder leer"}}]}}'),
+}
+
+
+def ideen(g, art, bisher, chat=None, n=8, zufall=random):
+    """Lässt die KI passende Ideen vorschlagen (Artikel, Geschichten oder Themen). Liste von Dicts, ggf. leer."""
+    system = ("Du hilfst bei der Planung eines deutschsprachigen Instagram-Accounts.\n"
+              f"Beschreibung des Accounts: {g.get('beschreibung') or g.get('thema')}\n"
+              f"Thema: {g.get('thema', '')}\nAntworte NUR mit JSON.")
+    auftrag = IDEEN[art].format(n=n)
+    if bisher:
+        auftrag += " Diese gab es schon, schlage andere vor: " + "; ".join(list(bisher)[-60:])
+    nachrichten = [{"role": "system", "content": system}, {"role": "user", "content": auftrag}]
+    if chat is None:
+        if g.get("text_ki") == "claude":
+            modelle, chat = ["claude"], lambda nn, _m: _claude_chat(nn)
+        else:
+            modelle, chat = textmodelle(), _cf_oder_pollinations
+    else:
+        modelle = ["test"]
+    for modell in modelle:
+        try:
+            daten = _json_aus(chat(nachrichten, modell))
+        except KitFehler:
+            raise
+        except Exception as exc:  # noqa: BLE001 - nächstes Modell
+            print(f"  Ideen von {modell} fehlgeschlagen: {exc}")
+            continue
+        liste = [i for i in (daten.get("ideen") or []) if isinstance(i, dict) and str(i.get("titel", "")).strip()]
+        if liste:
+            zufall.shuffle(liste)
+            return liste
+    return []
+
+
+def _bisherige_titel(verlauf, praefix):
+    return [m.removeprefix(praefix) for m in verlauf.get("wiki_benutzt", []) + verlauf.get("wiki_abgelehnt", [])
+            if m.startswith(praefix)]
+
+
+def _reiseartikel(ort):
+    from . import wikimedia
+
+    try:
+        s = wikimedia.reiseartikel(ort)
+    except Exception as exc:  # noqa: BLE001 - dann eben Wikipedia oder ohne Artikel
+        print(f"  Wikivoyage nicht erreichbar ({type(exc).__name__})")
+        return None
+    return (s[0], s[0], s[1], s[2]) if s else None
+
+
+def _wissensartikel(titel, http=HTTP):
+    """Wikipedia-Artikel als Faktenquelle für ein Wissens-Reel, oder None."""
+    if not titel or len(titel) > 120:
+        return None
+    try:
+        a = artikel(titel, http)
+        if not a:
+            treffer = suchen(titel, "de", http, random.Random(0))[:1]
+            a = artikel(treffer[0], http) if treffer else None
+    except Exception as exc:  # noqa: BLE001 - dann eben ohne Artikel
+        print(f"  Wikipedia nicht erreichbar ({type(exc).__name__}), schreibe ohne Artikel")
+        return None
+    return a if a and len(a[2]) >= 800 else None
+
+
+def _wissen(g, verlauf, http=HTTP, chat=None, zufall=random):
+    bisher = _bisherige_titel(verlauf, "wissen:")
+    vorschlaege = ideen(g, "wissen", bisher, chat, zufall=zufall)
+    if not vorschlaege:
+        vorschlaege = [{"titel": zufall.choice(g["suchbegriffe"] or [g["thema"] or "Tipps zum Thema"])}]
+    vorschlaege.sort(key=lambda i: 0 if (i.get("wikipedia") or i.get("reiseziel")) else 1)
+    for idee in vorschlaege[:3]:
+        titel = str(idee["titel"]).strip()[:120]
+        if titel in bisher:
+            continue
+        projekt, a = "wikipedia", None
+        reise = str(idee.get("reiseziel") or "").strip()
+        if reise:
+            projekt, a = "wikivoyage", _reiseartikel(reise)
+        if not a:
+            projekt, a = "wikipedia", _wissensartikel(str(idee.get("wikipedia") or "").strip(), http)
+        if a:  # Sachwissen: Fakten aus Wikipedia/Wikivoyage statt aus dem Gedächtnis der KI
+            skript, grund = skript_schreiben(g, titel, a[2][:9000], chat, quelle="wissen_text")
+            quelle = a[1]
+        else:
+            skript, grund = skript_schreiben(g, titel, f"Schreibe ein Wissens-Reel zum Thema: {titel}.", chat,
+                                             quelle="wissen")
+            quelle = ""
+        if skript:
+            skript.update(quelle_art="wissen", quelle=quelle, titel=skript.get("titel") or titel,
+                          merken=[f"wissen:{titel}"],
+                          quelle_projekt=projekt if quelle else "")
+            print(f"+ {titel}: Skript geschrieben")
+            return skript
+        print(f"- {titel}: {grund}")
+    raise KitFehler("Die KI konnte gerade kein Wissens-Reel schreiben. Beim nächsten Lauf neuer Versuch.")
+
+
+def _titel_kern(t):
+    t = re.sub(r"\(.*?\)", " ", t.lower())
+    t = re.sub(r"^(die|der|das|ein|eine)\s+", "", t.strip())
+    return re.sub(r"[^a-zäöüß0-9 ]", "", t).strip()
+
+
+def _titel_passt(gefunden, gesucht):
+    import difflib
+
+    a, b = _titel_kern(gefunden), _titel_kern(gesucht)
+    return bool(a) and (a in b or b in a or difflib.SequenceMatcher(None, a, b).ratio() >= 0.7)
+
+
+def _originaltext(titel, herkunft):
+    """Originaltext einer überlieferten Geschichte von Wikisource, oder None."""
+    from . import wikimedia
+
+    try:
+        return wikimedia.originaltext(titel, herkunft)
+    except Exception as exc:  # noqa: BLE001 - dann aus dem Wissen der KI
+        print(f"  Wikisource nicht erreichbar ({type(exc).__name__}), erzähle ohne Originaltext")
+        return None
+
+
+def _nacherzaehlung(g, verlauf, chat=None, zufall=random):
+    from . import bibel
+
+    bisher = _bisherige_titel(verlauf, "erz:")
+    vorschlaege = ideen(g, "nacherzaehlung", bisher, chat, zufall=zufall)
+    if not vorschlaege:
+        raise KitFehler("Die KI hat gerade keine passende Geschichte vorgeschlagen. Beim nächsten Lauf neuer Versuch.")
+    for idee in vorschlaege[:4]:
+        titel = str(idee["titel"]).strip()[:120]
+        stelle = str(idee.get("stelle") or "").strip()[:80]
+        if not bibel.ist_stelle(stelle):  # Herkunft kurz halten: "Charles Perrault (französisches ...)" -> "Charles Perrault"
+            stelle = re.split(r"[(;,]", stelle)[0].strip()[:50]
+        if titel in bisher:
+            continue
+        original = bibel.text(stelle) if bibel.ist_stelle(stelle) else None
+        projekt = "bibel" if original else ""
+        artikel_titel = ""
+        if not original:
+            quelltext = _originaltext(titel, stelle)
+            if quelltext:
+                original, projekt = (stelle or quelltext[0], quelltext[1][:9000]), "wikisource"
+        if not original:  # kein Originaltext: Inhaltsangabe aus Wikipedia, damit die Handlung stimmt
+            a = None
+            for suchtitel in dict.fromkeys(t for t in (titel, stelle) if t and not bibel.ist_stelle(t)):
+                kandidat = _wissensartikel(suchtitel, HTTP)
+                if kandidat and (_titel_passt(kandidat[1], titel) or _titel_passt(kandidat[1], suchtitel)):
+                    a = kandidat
+                    break
+                if kandidat:
+                    print(f"  Wikipedia-Artikel „{kandidat[1]}“ passt nicht zu „{suchtitel}“")
+            if a:
+                original, projekt, artikel_titel = (stelle, a[2][:9000]), "wikipedia", a[1]
+        if not original and idee is not vorschlaege[:4][-1]:
+            print(f"- {titel}: keine verlässliche Vorlage gefunden, nehme die nächste Idee")
+            continue
+        if original:
+            stelle, text = original
+            skript, grund = skript_schreiben(g, f"{titel} ({stelle})" if stelle else titel, text, chat,
+                                             quelle="nacherzaehlung_text")
+        else:
+            auftrag = f"Erzähle diese Geschichte nach: {titel}" + (f" (Herkunft: {stelle})." if stelle else ".")
+            skript, grund = skript_schreiben(g, titel, auftrag, chat, quelle="nacherzaehlung")
+        if skript:
+            skript.update(quelle_art="nacherzaehlung", quelle=stelle, titel=titel, merken=[f"erz:{titel}"],
+                          quelle_projekt=projekt, quelle_artikel=artikel_titel)
+            print(f"+ {titel} ({stelle or 'überliefert'}): Skript geschrieben")
+            return skript
+        print(f"- {titel}: {grund}")
+        if grund.startswith("passt nicht"):
+            verlauf["wiki_abgelehnt"] = (verlauf.get("wiki_abgelehnt", []) + [f"erz:{titel}"])[-500:]
+    raise KitFehler("Gerade ließ sich keine Geschichte nacherzählen. Beim nächsten Lauf neuer Versuch.")
+
+
 def neue_geschichte(g, verlauf, http=HTTP, chat=None, zufall=random):
     """Wählt je nach Einstellung die Quelle."""
+    if g.get("quelle") == "wissen":
+        return _wissen(g, verlauf, http, chat, zufall)
+    if g.get("quelle") == "nacherzaehlung":
+        return _nacherzaehlung(g, verlauf, chat, zufall)
     if g.get("quelle") == "fiktion":
         return _fiktion(g, verlauf, chat, zufall)
     if g.get("quelle") == "eigene_texte":
@@ -382,13 +750,21 @@ def _wikipedia(g, verlauf, http=HTTP, chat=None, zufall=random):
     (das passiert erst nach dem Posten); gibt die zu merkenden Artikel-Schlüssel mit."""
     benutzt = set(verlauf.get("wiki_benutzt", [])) | set(verlauf.get("wiki_abgelehnt", []))
     versucht = []
-    for schluessel in kandidaten(g, benutzt, http, zufall):
+
+    def vorschlaege():
+        bisher = [b for b in benutzt if ":" not in b or b.startswith("en:")][-60:]
+        return [str(i["titel"]).strip() for i in ideen(g, "wikipedia", bisher, chat, n=10, zufall=zufall)]
+
+    for schluessel in kandidaten(g, benutzt, http, zufall, vorschlaege):
         if len(versucht) >= MAX_ARTIKEL_PRO_LAUF:
             break
         if schluessel in versucht:
             continue
         versucht.append(schluessel)
         a = artikel(schluessel, http)
+        if not a and _sprache(schluessel)[0] == "de":  # kein exakter Titel (z.B. KI-Vorschlag): suchen
+            treffer = suchen(schluessel, "de", http, random.Random(0))[:1]
+            a = artikel(treffer[0], http) if treffer and treffer[0] not in benutzt else None
         if not a or len(a[2]) < MIN_ZEICHEN:
             print(f"- {schluessel}: übersprungen (zu kurz)")
             continue
@@ -404,5 +780,6 @@ def _wikipedia(g, verlauf, http=HTTP, chat=None, zufall=random):
         skript.update(quelle_art="wikipedia", quelle=url, titel=titel, merken=sorted({schluessel, echt} | andere))
         print(f"+ {titel}: Skript geschrieben")
         return skript
-    raise KitFehler("Keine passende Geschichte gefunden. Ergänze in einstellungen.yml weitere "
-                    "Suchbegriffe oder Startartikel. Beim nächsten Lauf wird es erneut versucht.")
+    raise KitFehler("Keine passende Wikipedia-Geschichte gefunden. Beim nächsten Lauf wird es erneut versucht. "
+                    "Passiert das öfter: in einstellungen.yml unter geschichten → startartikel konkrete Artikel "
+                    "eintragen oder eine andere Quelle wählen (z.B. \"wissen\" oder \"nacherzaehlung\").")

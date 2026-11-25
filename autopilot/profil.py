@@ -50,7 +50,7 @@ def ableiten(beschreibung, text_ki="cloudflare", chat=None):
         if text_ki == "claude":
             modelle, chat = ["claude"], lambda n, _m: geschichten._claude_chat(n)
         else:
-            modelle, chat = geschichten.CF_TEXT_MODELLE, geschichten._cloudflare_chat
+            modelle, chat = geschichten.textmodelle(), geschichten._cf_oder_pollinations
     else:
         modelle = ["test"]
     fehler = []
