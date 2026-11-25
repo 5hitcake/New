@@ -124,7 +124,8 @@ Thema des Accounts: {thema}
 QUELLEN_REGELN = {
     "wissen_text": """
 Das Reel vermittelt Wissen. WICHTIGSTE REGEL: Alle Fakten, Zahlen und Namen stammen aus dem mitgelieferten
-Artikel (Wikipedia oder Reiseführer Wikivoyage). Nichts dazuerfinden. Passt das angegebene Thema nicht zum Artikel,
+Artikel (Wikipedia oder Reiseführer Wikivoyage). Nichts dazuerfinden. Antworte nur dann mit "geeignet": false,
+wenn der Artikel fast keine Fakten enthält, sonst passe das Thema an den Artikel an. Passt das angegebene Thema nicht zum Artikel,
 nimm stattdessen die überraschendsten, anschaulichsten Fakten AUS DEM ARTIKEL und gib dem Reel einen passenden
 "titel". Formuliere nie einen Irrtum als Tatsache. Gib dem Reel einen kurzen "titel".
 """,
@@ -420,7 +421,9 @@ def skript_schreiben(g, titel, text, chat=None, quelle="wikipedia"):
     if quelle in ("fiktion", "wissen", "nacherzaehlung"):
         nutzer = text
     elif quelle == "wissen_text":
-        nutzer = f'Thema des Reels: {titel}\n\nArtikel:\n\n{text}'
+        nutzer = (f'Ungefähres Thema (darf frei angepasst werden): {titel}\n'
+                  'Steht dazu nichts im Artikel, wähle einfach die staunenswertesten Fakten AUS DEM ARTIKEL '
+                  f'und gib dem Reel einen passenden neuen "titel".\n\nArtikel:\n\n{text}')
     elif quelle == "nacherzaehlung_text":
         nutzer = f'Originaltext "{titel}":\n\n{text}'
     elif quelle == "eigene_texte":
@@ -577,7 +580,8 @@ def _wissen(g, verlauf, http=HTTP, chat=None, zufall=random):
                                              quelle="wissen")
             quelle = ""
         if skript:
-            skript.update(quelle_art="wissen", quelle=quelle, titel=titel, merken=[f"wissen:{titel}"],
+            skript.update(quelle_art="wissen", quelle=quelle, titel=skript.get("titel") or titel,
+                          merken=[f"wissen:{titel}"],
                           quelle_projekt=projekt if quelle else "")
             print(f"+ {titel}: Skript geschrieben")
             return skript
