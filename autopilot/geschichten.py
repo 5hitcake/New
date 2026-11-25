@@ -632,6 +632,8 @@ def _nacherzaehlung(g, verlauf, chat=None, zufall=random):
     for idee in vorschlaege[:4]:
         titel = str(idee["titel"]).strip()[:120]
         stelle = str(idee.get("stelle") or "").strip()[:80]
+        if not bibel.ist_stelle(stelle):  # Herkunft kurz halten: "Charles Perrault (französisches ...)" -> "Charles Perrault"
+            stelle = re.split(r"[(;,]", stelle)[0].strip()[:50]
         if titel in bisher:
             continue
         original = bibel.text(stelle) if bibel.ist_stelle(stelle) else None
