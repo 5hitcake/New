@@ -124,7 +124,8 @@ Thema des Accounts: {thema}
 QUELLEN_REGELN = {
     "wissen_text": """
 Das Reel vermittelt Wissen. WICHTIGSTE REGEL: Alle Fakten, Zahlen und Namen stammen aus dem mitgelieferten
-Artikel (Wikipedia oder Reiseführer Wikivoyage). Nichts dazuerfinden. Antworte nur dann mit "geeignet": false,
+Artikel (Wikipedia oder Reiseführer Wikivoyage). Nichts dazuerfinden. Erkläre für Laien: keine Fachbegriffe
+wie "Campanium" oder "Orbitalfenster", sondern einfache Worte ("vor etwa 75 Millionen Jahren", "Augenhöhle"). Antworte nur dann mit "geeignet": false,
 wenn der Artikel fast keine Fakten enthält, sonst passe das Thema an den Artikel an. Passt das angegebene Thema nicht zum Artikel,
 nimm stattdessen die überraschendsten, anschaulichsten Fakten AUS DEM ARTIKEL und gib dem Reel einen passenden
 "titel". Formuliere nie einen Irrtum als Tatsache. Gib dem Reel einen kurzen "titel".
@@ -635,12 +636,19 @@ def _nacherzaehlung(g, verlauf, chat=None, zufall=random):
             if quelltext:
                 original, projekt = (stelle or quelltext[0], quelltext[1][:9000]), "wikisource"
         if not original:  # kein Originaltext: Inhaltsangabe aus Wikipedia, damit die Handlung stimmt
-            a = _wissensartikel(titel, HTTP)
-            if a and not _titel_passt(a[1], titel):
-                print(f"  Wikipedia-Artikel „{a[1]}“ passt nicht zu „{titel}“, erzähle ohne Vorlage")
-                a = None
+            a = None
+            for suchtitel in dict.fromkeys(t for t in (titel, stelle) if t and not bibel.ist_stelle(t)):
+                kandidat = _wissensartikel(suchtitel, HTTP)
+                if kandidat and (_titel_passt(kandidat[1], titel) or _titel_passt(kandidat[1], suchtitel)):
+                    a = kandidat
+                    break
+                if kandidat:
+                    print(f"  Wikipedia-Artikel „{kandidat[1]}“ passt nicht zu „{suchtitel}“")
             if a:
                 original, projekt, artikel_titel = (stelle, a[2][:9000]), "wikipedia", a[1]
+        if not original and idee is not vorschlaege[:4][-1]:
+            print(f"- {titel}: keine verlässliche Vorlage gefunden, nehme die nächste Idee")
+            continue
         if original:
             stelle, text = original
             skript, grund = skript_schreiben(g, f"{titel} ({stelle})" if stelle else titel, text, chat,
