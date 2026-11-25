@@ -19,7 +19,7 @@ STIMMEN = os.path.join(ROOT, ".stimmen")  # Download-Ordner für die Sprecher-St
 WOCHENTAGE = ["mo", "di", "mi", "do", "fr", "sa", "so"]
 TYPEN = ("bild", "reel", "story")
 INHALTSARTEN = ("zitate", "geschichten", "eigene_medien")
-QUELLEN = ("wissen", "wikipedia", "nacherzaehlung", "fiktion", "eigene_texte")
+QUELLEN = ("wissen", "wikipedia", "nacherzaehlung", "fiktion", "eigene_texte", "eigene_quellen")
 BILDSTILE = ("ki_mit_text", "ki_ohne_text", "text", "eigene_fotos")
 EIGENE_TEXTE = os.path.join(ROOT, "inhalte", "geschichten.txt")
 
@@ -148,12 +148,12 @@ def pruefen(roh):
         raise KitFehler("geschichten → sprechtempo muss zwischen 0.6 und 1.5 liegen.")
     t = roh.get("texte") or {}
     texte_quelle = str(t.get("quelle", "datei")).strip().lower()
-    if texte_quelle not in ("datei", "ki", "zitate", "fakten"):
-        raise KitFehler("texte → quelle muss \"ki\", \"fakten\", \"zitate\" oder \"datei\" sein.")
+    if texte_quelle not in ("datei", "ki", "zitate", "fakten", "eigene_quellen"):
+        raise KitFehler("texte → quelle muss \"ki\", \"fakten\", \"zitate\", \"eigene_quellen\" oder \"datei\" sein.")
     texte_ki = str(t.get("text_ki", "cloudflare")).strip().lower()
     if texte_ki not in ("cloudflare", "claude"):
         raise KitFehler("texte → text_ki muss \"cloudflare\" oder \"claude\" sein.")
-    if texte_quelle in ("ki", "zitate", "fakten") and not str(t.get("thema", "")).strip() and not beschreibung:
+    if texte_quelle in ("ki", "zitate", "fakten", "eigene_quellen") and not str(t.get("thema", "")).strip() and not beschreibung:
         raise KitFehler("Beschreibe deinen Account in einstellungen.yml unter account → beschreibung "
                         "(oder trag bei texte → thema ein Thema ein). Daraus schreibt die KI die Texte.")
     bp = roh.get("bildpost") or {}
@@ -197,6 +197,7 @@ def pruefen(roh):
             "suchbegriffe_englisch": [str(x) for x in g.get("suchbegriffe_englisch") or []],
             "startartikel": [str(x) for x in g.get("startartikel") or []],
             "bildstil": str(g.get("bildstil", "")).strip() or look_prompt,
+            "bilder": _bilder_wahl(g.get("bilder", "ki")),
             "akzentfarbe": _farbe(g.get("akzentfarbe", "#E5484D"), "geschichten → akzentfarbe"),
             "sprecher": sprecher,
             "sprechtempo": tempo,
@@ -258,3 +259,10 @@ KONTINGENT_HINWEIS = ("Das kostenlose Tageskontingent der Cloudflare-KI ist für
 
 def kontingent_leer(antwort_text):
     return "daily free allocation" in (antwort_text or "")
+
+
+def _bilder_wahl(wert):
+    w = str(wert or "ki").strip().lower()
+    if w not in ("ki", "eigene", "gemischt"):
+        raise KitFehler("geschichten → bilder muss \"ki\", \"eigene\" oder \"gemischt\" sein.")
+    return w

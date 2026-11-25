@@ -1,3 +1,6 @@
-Lade hier deine eigenen Fotos und Videos hoch (Inhaltsart "eigene_medien").
+Lade hier deine eigenen Fotos und Videos hoch. Genutzt für:
+- Reels aus eigenen Medien (inhaltsart "eigene_medien")
+- Sprecher-Reels mit deinen Fotos (geschichten → bilder: "eigene" oder "gemischt")
+- Bild-Posts mit deinen Fotos als Hintergrund (bildpost → stil: "eigene_fotos")
 Fotos: JPG, PNG, WEBP oder HEIC (iPhone). Videos: MP4 oder MOV, kurze Clips, höchstens 25 MB pro Datei.
 Achtung: Das Repository ist öffentlich, nur Bilder hochladen, die jeder sehen darf.

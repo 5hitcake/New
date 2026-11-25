@@ -42,10 +42,39 @@ def segmente(cfg, skript):
     return teile
 
 
+def eigene_fotos():
+    """Nur Fotos (keine Videos) aus dem Ordner medien."""
+    return [os.path.join(MEDIEN, f) for f in eigene_medien_liste() if f.lower().endswith(BILDENDUNGEN)]
+
+
+def _bildquelle(wahl, zufall=random):
+    """Bilder für Sprecher-Reels: "ki", "eigene" (Fotos aus medien) oder "gemischt" (abwechselnd)."""
+    if wahl == "ki":
+        return ki_bilder.erzeugen
+    fotos = eigene_fotos()
+    if not fotos:
+        print("Hinweis: geschichten → bilder will eigene Fotos, aber im Ordner medien liegen keine. Nehme KI-Bilder.")
+        return ki_bilder.erzeugen
+    zufall.shuffle(fotos)
+    zaehler = {"n": 0}
+
+    def quelle(prompt):
+        from PIL import Image, ImageOps
+
+        i = zaehler["n"]
+        zaehler["n"] += 1
+        if wahl == "gemischt" and i % 2 == 1:
+            return ki_bilder.erzeugen(prompt)
+        with Image.open(fotos[i % len(fotos)]) as bild:
+            return ImageOps.exif_transpose(bild).convert("RGB")
+
+    return quelle
+
+
 def geschichten_reel(cfg, skript, ziel, musik=None, sprecher=None, bild_quelle=None, zufall=random):
     """Baut das Reel. Gibt (dauer, titelbild_jpg, bildquellen) zurück."""
     g = cfg["geschichten"]
-    bild_quelle = bild_quelle or ki_bilder.erzeugen
+    bild_quelle = bild_quelle or _bildquelle(g.get("bilder", "ki"), zufall)
     video.ffmpeg_bereit()
     arbeit = tempfile.mkdtemp(prefix="reel_")
     try:
@@ -100,6 +129,7 @@ def geschichten_reel(cfg, skript, ziel, musik=None, sprecher=None, bild_quelle=N
 
 
 HERKUNFT = {
+    "eigene_quellen": "Quelle: {quelle}. Bilder KI-generiert.",
     "wissen": "Bilder KI-generiert.",
     "nacherzaehlung": "Nacherzählt nach {quelle}. Bilder KI-generiert.",
     "wikipedia": "Quelle: Wikipedia ({titel}). Bilder KI-generiert.",
@@ -127,7 +157,7 @@ def _herkunft(skript):
         if skript.get("quelle_projekt") == "wikivoyage":
             return f"Infos: Wikivoyage ({skript['quelle']}). Bilder KI-generiert."
         return f"Fakten: Wikipedia ({skript['quelle']}). Bilder KI-generiert."
-    return HERKUNFT.get(art, "").format(titel=skript.get("titel", ""))
+    return HERKUNFT.get(art, "").format(titel=skript.get("titel", ""), quelle=skript.get("quelle", ""))
 
 
 def geschichten_caption(cfg, skript, zufall=random):

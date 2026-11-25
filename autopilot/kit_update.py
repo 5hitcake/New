@@ -22,7 +22,8 @@ NIE_UEBERSCHREIBEN = ("daten/verlauf.json",)
 DATEIEN = ("requirements.txt", "pyproject.toml", "README.md", "LIZENZ.md", ".gitignore")
 # Nur diese Erklärdateien werden in deinen Ordnern aktualisiert, nie deine eigenen Dateien
 ERKLAERUNGEN = ("musik/LIESMICH.txt", "musik/duester/LIESMICH.txt", "musik/ruhig/LIESMICH.txt",
-                "musik/neutral/LIESMICH.txt", "medien/LIESMICH.txt", "hintergruende/LIESMICH.txt")
+                "musik/neutral/LIESMICH.txt", "medien/LIESMICH.txt", "hintergruende/LIESMICH.txt",
+                "quellen/LIESMICH.txt")
 WORKFLOW = os.path.join(".github", "workflows", "autopilot.yml")
 
 

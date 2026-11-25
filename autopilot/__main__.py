@@ -354,17 +354,31 @@ def pruefen():
             n = len(geschichten.eigene_texte_laden())
             (ok if n else schlecht)(f"inhalte/geschichten.txt: {n} eigene Texte" if n else
                                     "inhalte/geschichten.txt enthält noch keinen Text")
-        else:
+        elif quelle != "eigene_quellen":
             ok({"wissen": "Quelle: Wissen und Tipps zu deinem Thema",
                 "wikipedia": "Quelle: Wikipedia (wahre Geschichten mit Quellenangabe)",
                 "nacherzaehlung": "Quelle: bekannte Erzählungen, nacherzählt (Bibel im Wortlaut der Lutherbibel 1912)",
                 "fiktion": "Quelle: Fiktion (frei erfundene Geschichten, in der Caption gekennzeichnet)"}[quelle])
         braucht_cf = True
+        if cfg["geschichten"]["bilder"] != "ki":
+            n = len(reels.eigene_fotos())
+            (ok if n else schlecht)(f"Reel-Bilder: {n} eigene Fotos im Ordner medien" if n else
+                                    "geschichten → bilder will eigene Fotos, aber der Ordner medien ist leer")
         if cfg["geschichten"]["text_ki"] == "claude":
             if os.environ.get("ANTHROPIC_API_KEY", "").strip():
                 ok("Claude-API-Schlüssel hinterlegt (kostenpflichtige Option)")
             else:
                 schlecht("text_ki ist \"claude\", aber das Secret ANTHROPIC_API_KEY fehlt")
+    if cfg and (cfg["texte"]["quelle"] == "eigene_quellen" or
+                (art == "geschichten" and cfg["geschichten"]["quelle"] == "eigene_quellen")):
+        from . import eigene_quellen
+
+        d, links = eigene_quellen.dateien(), eigene_quellen.links()
+        if d or links:
+            ok(f"Eigene Quellen: {len(d)} Dateien und {len(links)} Webseiten im Ordner quellen")
+        else:
+            schlecht("Eigene Quellen gewählt, aber im Ordner quellen liegt noch nichts (PDFs, Textdateien "
+                     "oder Webseiten in quellen/links.txt)")
     if braucht_cf:
         erfolg, text = _cloudflare_ok()
         (ok if erfolg else schlecht)(text)

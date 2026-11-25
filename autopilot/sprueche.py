@@ -62,7 +62,7 @@ für ein Bild.
 Beschreibung des Accounts: {beschreibung}
 Ton: {stil}
 
-WICHTIGSTE REGEL: Der Fakt stammt ausschließlich aus diesem Wikipedia-Artikel ("{artikel}"). Zahlen, Namen
+WICHTIGSTE REGEL: Der Fakt stammt ausschließlich aus diesem Text ("{artikel}"). Zahlen, Namen
 und Daten genau wie im Artikel. Nichts dazuerfinden, nichts runden, was nicht gerundet ist.
 
 Artikel:
@@ -148,7 +148,20 @@ def fakt(cfg, verlauf, chat=None, http=None, zufall=None):
     t = cfg["texte"]
     g = {"beschreibung": cfg.get("beschreibung") or t["thema"], "thema": t["thema"], "text_ki": t["text_ki"]}
     benutzt = verlauf.get("fakten_artikel", [])
-    vorschlaege = geschichten.ideen(g, "wikipedia", benutzt, chat, n=8, zufall=zufall)
+    eigene = t["quelle"] == "eigene_quellen"
+    if eigene:
+        from . import eigene_quellen
+
+        frei = {b.removeprefix("quelle:") for b in benutzt if b.startswith("quelle:")}
+        artikel_liste = []
+        for _ in range(3):
+            name, text, kennung = eigene_quellen.naechster_abschnitt(frei)
+            frei.add(kennung)
+            artikel_liste.append((f"quelle:{kennung}", eigene_quellen.anzeigename(name), text))
+        vorschlaege = []
+    else:
+        vorschlaege = geschichten.ideen(g, "wikipedia", benutzt, chat, n=8, zufall=zufall)
+        artikel_liste = None
     if chat is None:
         modelle, chat = ((["claude"], lambda n, _m: geschichten._claude_chat(n)) if t["text_ki"] == "claude"
                          else (geschichten.textmodelle(), geschichten._cf_oder_pollinations))
@@ -156,10 +169,17 @@ def fakt(cfg, verlauf, chat=None, http=None, zufall=None):
         modelle = ["test"]
     gesehen = {inhalte.eintrag_id(x) for x in verlauf.get("ki_sprueche", [])}
     fehler = []
-    for idee in vorschlaege[:3]:
-        a = geschichten._wissensartikel(str(idee["titel"]).strip(), http or geschichten.HTTP)
-        if not a or a[1] in benutzt:
-            continue
+    def artikel_reihe():
+        if artikel_liste is not None:
+            yield from artikel_liste
+            return
+        for idee in vorschlaege[:3]:
+            a = geschichten._wissensartikel(str(idee["titel"]).strip(), http or geschichten.HTTP)
+            if a and a[1] not in benutzt:
+                yield a[1], a[1], a[2]
+
+    for merk, anzeige, quelltext in artikel_reihe():
+        a = (merk, anzeige, quelltext)
         system = SYSTEM_FAKTEN.format(beschreibung=g["beschreibung"], stil=t["stil"] or "staunend, einfach",
                                       artikel=a[1], text=a[2][:7000])
         nachrichten = [{"role": "system", "content": system}, {"role": "user", "content": "Schreibe den Fakt."}]
@@ -172,6 +192,13 @@ def fakt(cfg, verlauf, chat=None, http=None, zufall=None):
             except Exception as exc:  # noqa: BLE001
                 fehler.append(f"{modell}: {exc}")
                 continue
+            if re.search(r"\b(dort|hier|damals|diese[rsmn]?|deren|dessen)\b", eintrag["text"].split(",")[0], re.IGNORECASE) \
+                    or eintrag["text"].split()[0].lower() in ("er", "sie", "es", "ihr", "sein", "seine"):
+                fehler.append(f"{a[1]}: ohne Zusammenhang unverständlich")
+                nachrichten = nachrichten[:2] + [{"role": "assistant", "content": antwort}, {
+                    "role": "user", "content": "Der Satz ist ohne Zusammenhang nicht verständlich (dort, hier, er, "
+                    "diese …). Nenne das Thema ausdrücklich im Satz. Nur JSON."}]
+                continue
             falsch = geschichten.faktencheck({"hook": {"text": eintrag["text"]}, "szenen": []}, a[2], chat, modell)
             if falsch or eintrag["id"] in gesehen:
                 fehler.append(f"{a[1]}: Faktencheck" if falsch else f"{a[1]}: Wiederholung")
@@ -180,8 +207,8 @@ def fakt(cfg, verlauf, chat=None, http=None, zufall=None):
                                                  {"role": "user", "content": grund + " Bitte einen anderen Fakt, "
                                                   "nur aus dem Artikel. Nur JSON."}]
                 continue
-            eintrag["autor"] = f"Quelle: Wikipedia ({a[1]})"
-            eintrag["fakten_artikel"] = a[1]
+            eintrag["autor"] = f"Quelle: {a[1]}" if eigene else f"Quelle: Wikipedia ({a[1]})"
+            eintrag["fakten_artikel"] = a[0]
             return eintrag
     raise KitFehler("Gerade ließ sich kein geprüfter Fakt finden. Beim nächsten Lauf neuer Versuch. "
                     + " | ".join(fehler[-3:]))
@@ -236,7 +263,7 @@ def ki_spruch(cfg, verlauf, chat=None, http=None):
 
 def naechster_spruch(cfg, verlauf, liste, eintraege=None, chat=None):
     """Nächster Spruch aus der Datei oder von der KI."""
-    if cfg["texte"]["quelle"] == "fakten":
+    if cfg["texte"]["quelle"] in ("fakten", "eigene_quellen"):
         return fakt(cfg, verlauf, chat)
     if cfg["texte"]["quelle"] in ("ki", "zitate"):
         return ki_spruch(cfg, verlauf, chat)
