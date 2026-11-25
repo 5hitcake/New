@@ -6,10 +6,10 @@
 
 # Dein Instagram-Name OHNE @ (Sicherheitscheck: es wird nur auf
 # diesen Account gepostet, nie aus Versehen auf einen anderen).
-instagram_name: "staedtetrips.europa"
+instagram_name: "dino.welt"
 
 # Wird unten auf jedes Bild geschrieben. Leer lassen ("") = kein Name im Bild.
-name_im_bild: "@staedtetrips.europa"
+name_im_bild: "@dino.welt"
 
 # Deine Instagram-Konto-ID: die lange Zahl (beginnt meist mit 1784) unter deinem
 # Kontonamen im Meta-Dashboard bei "Zugriffstokens generieren". Nötig bei Tokens,
@@ -22,7 +22,13 @@ instagram_konto_id: "17841474886132946"
 #  Worum geht es? Für wen? Welcher Ton? Was soll es NICHT geben?
 # ------------------------------------------------------------
 account:
-  beschreibung: "Thema: Städtereisen in Europa: Geheimtipps, Sehenswürdigkeiten und praktische Infos. Zielgruppe: Paare und Freunde, die Kurztrips planen. Ton: locker und humorvoll, in der Du-Form. Bitte nicht: keine Werbung für Hotels. Beispiel für einen typischen Post: „Lissabon in 48 Stunden: Diese 5 Orte darfst du nicht verpassen.“"
+  beschreibung: "Thema: Dinosaurier: verblüffende Fakten, Rekorde und neue Funde. Zielgruppe: Dino-Fans jeden Alters, Familien. Ton: locker und humorvoll, in der Du-Form. Bitte nicht: keine Fantasie-Fakten, keine Filme. Beispiel für einen typischen Post: „Der T. rex lebte näher an uns als am Stegosaurus.“"
+
+  # Look aller KI-Bilder (Bild-Posts und Reels). Beispiele ansehen: Aktion "bildstile" starten.
+  #   "auto" = passend zu deiner Beschreibung
+  #   "foto", "kino", "anime", "comic", "3d", "aquarell", "oelgemaelde", "skizze",
+  #   "pixel", "flach", "vintage", "duester", "fantasy"
+  bildstil: "auto"
 
 # ------------------------------------------------------------
 #  Welche Art von Reels? Genau EINE eintragen (Bild-Posts gibt es bei allen):
@@ -39,10 +45,12 @@ texte:
   # Woher kommen die Texte für Bild-Posts und Text-Reels?
   #   "ki"     = eine kostenlose KI schreibt bei jedem Post einen neuen Text passend
   #              zu deiner Beschreibung (braucht das Cloudflare-Konto, siehe Anleitung)
+  #   "fakten" = überraschende Fakten aus Wikipedia, mit Faktencheck und Quelle im Bild
+  #              (für Sachthemen wie Tiere, Natur, Geschichte, Technik)
   #   "zitate" = echte Zitate mit Quelle (z.B. Bibelverse, Dichter, Philosophen, Sprichwörter).
   #              Bibelverse im Wortlaut der Lutherbibel 1912, alle anderen auf Wikiquote geprüft.
   #   "datei"  = deine eigenen Texte aus inhalte/posts.csv
-  quelle: "ki"
+  quelle: "fakten"
 
   # Optional: leer lassen = aus deiner Beschreibung abgeleitet
   thema: ""
@@ -61,7 +69,7 @@ bildpost:
   #   "text"         = Text auf Farbverlauf (oder auf deinen Fotos im Ordner hintergruende)
   #   "eigene_fotos" = deine Fotos aus dem Ordner medien, Text darauf
   stil: "ki_mit_text"
-  # Optional: leer lassen = aus deiner Beschreibung abgeleitet (auf Englisch)
+  # Optional, für Profis: eigener Bildstil auf Englisch (überschreibt account → bildstil)
   bildstil: ""
   motiv: ""
 
@@ -173,7 +181,7 @@ geschichten:
   # Nur bei "wikipedia", optional: Artikel, die zuerst drankommen (genauer Titel aus Wikipedia)
   startartikel: []
 
-  # Bildstil der KI-Bilder (auf Englisch). Leer lassen = aus deiner Beschreibung abgeleitet.
+  # Optional, für Profis: eigener Bildstil auf Englisch (überschreibt account → bildstil)
   bildstil: ""
 
   # Farbe für hervorgehobene Wörter im Untertitel
