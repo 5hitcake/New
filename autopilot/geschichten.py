@@ -205,7 +205,8 @@ REGELN = """Regeln:
 BOGEN = {
     "wissen": ("Aufbau: jede Szene EIN Tipp, Schritt oder Fakt, in sinnvoller Reihenfolge. Die letzte Szene "
                "fasst zusammen oder bringt den wichtigsten Tipp. Der Hook macht neugierig (überraschende "
-               "Aussage oder Frage). Die Frage lädt zum Mitmachen ein, z.B. welchen Tipp man zuerst ausprobiert."),
+               "Aussage oder Frage). Die Frage lädt zum Mitmachen ein: bei Tipps z.B. welchen man zuerst ausprobiert, bei Fakten "
+               "eine Staun- oder Meinungsfrage, die zum Inhalt passt."),
     "nacherzaehlung": ("Bogen wie im Original: Ausgangslage, Wendepunkt, Höhepunkt, Ende. Die letzte Szene "
                        "bringt das Ende oder die Lehre der Geschichte."),
     "geschichte": ("Bogen: Ort und Zeit, Ereignis, überraschendes Detail, Erklärungen oder Theorien, Auflösung "
@@ -562,6 +563,7 @@ def _wissen(g, verlauf, http=HTTP, chat=None, zufall=random):
     vorschlaege = ideen(g, "wissen", bisher, chat, zufall=zufall)
     if not vorschlaege:
         vorschlaege = [{"titel": zufall.choice(g["suchbegriffe"] or [g["thema"] or "Tipps zum Thema"])}]
+    vorschlaege.sort(key=lambda i: 0 if (i.get("wikipedia") or i.get("reiseziel")) else 1)
     for idee in vorschlaege[:3]:
         titel = str(idee["titel"]).strip()[:120]
         if titel in bisher:
@@ -587,6 +589,19 @@ def _wissen(g, verlauf, http=HTTP, chat=None, zufall=random):
             return skript
         print(f"- {titel}: {grund}")
     raise KitFehler("Die KI konnte gerade kein Wissens-Reel schreiben. Beim nächsten Lauf neuer Versuch.")
+
+
+def _titel_kern(t):
+    t = re.sub(r"\(.*?\)", " ", t.lower())
+    t = re.sub(r"^(die|der|das|ein|eine)\s+", "", t.strip())
+    return re.sub(r"[^a-zäöüß0-9 ]", "", t).strip()
+
+
+def _titel_passt(gefunden, gesucht):
+    import difflib
+
+    a, b = _titel_kern(gefunden), _titel_kern(gesucht)
+    return bool(a) and (a in b or b in a or difflib.SequenceMatcher(None, a, b).ratio() >= 0.7)
 
 
 def _originaltext(titel, herkunft):
@@ -621,6 +636,9 @@ def _nacherzaehlung(g, verlauf, chat=None, zufall=random):
                 original, projekt = (stelle or quelltext[0], quelltext[1][:9000]), "wikisource"
         if not original:  # kein Originaltext: Inhaltsangabe aus Wikipedia, damit die Handlung stimmt
             a = _wissensartikel(titel, HTTP)
+            if a and not _titel_passt(a[1], titel):
+                print(f"  Wikipedia-Artikel „{a[1]}“ passt nicht zu „{titel}“, erzähle ohne Vorlage")
+                a = None
             if a:
                 original, projekt, artikel_titel = (stelle, a[2][:9000]), "wikipedia", a[1]
         if original:

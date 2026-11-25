@@ -68,7 +68,9 @@ und Daten genau wie im Artikel. Nichts dazuerfinden, nichts runden, was nicht ge
 Artikel:
 {text}
 
-Regeln: 6 bis 22 Wörter, ein ganzer Satz, verständlich ohne Zusammenhang, überraschend oder staunenswert.
+Regeln: 6 bis 22 Wörter, ein ganzer Satz, überraschend oder staunenswert. Der Satz muss ohne jeden
+Zusammenhang verständlich sein: Nenne das Thema im Satz (z.B. "Der Urvogel Archaeopteryx ..." statt "Bis heute
+folgten ..."). Kein Fachjargon, keine Inventarnummern.
 Antworte NUR mit JSON: {{"text": "...", "kategorie": "ein Wort", "hashtags": ["#...", "#...", "#...", "#..."],
  "bild": "englische Bildbeschreibung passend zum Fakt, 10 bis 20 Wörter, ohne Text im Bild, keine realen Personen"}}"""
 

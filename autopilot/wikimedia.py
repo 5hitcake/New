@@ -136,14 +136,16 @@ def zitat_pruefen(text, autor, http=None):
 def originaltext(titel, herkunft="", http=None, min_zeichen=600):
     """Sucht den Originaltext einer überlieferten Geschichte auf Wikisource.
     (Seitentitel, Text, URL) oder None."""
-    kandidaten = [titel] + suchen("wikisource", f"{titel} {herkunft}".strip(), http)
+    kern = re.sub(r"^(Die|Der|Das)\s+", "", titel.strip())
+    kandidaten = [titel, kern] + suchen("wikisource", f"{kern} {herkunft}".strip(), http) + suchen(
+        "wikisource", kern, http)
     gesehen = set()
     for k in kandidaten:
         if k in gesehen:
             continue
         gesehen.add(k)
         ohne_klammer = re.sub(r"\s*\(.*?\)\s*", " ", k).strip()
-        if _aehnlich(ohne_klammer, titel) < 0.6:
+        if max(_aehnlich(ohne_klammer, titel), _aehnlich(ohne_klammer, kern)) < 0.6:
             continue
         s = seite("wikisource", k, http)
         if s and len(s[1]) >= min_zeichen:
