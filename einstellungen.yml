@@ -6,10 +6,10 @@
 
 # Dein Instagram-Name OHNE @ (Sicherheitscheck: es wird nur auf
 # diesen Account gepostet, nie aus Versehen auf einen anderen).
-instagram_name: "dino.welt"
+instagram_name: "sagen.und.maerchen"
 
 # Wird unten auf jedes Bild geschrieben. Leer lassen ("") = kein Name im Bild.
-name_im_bild: "@dino.welt"
+name_im_bild: "@sagen.und.maerchen"
 
 # Deine Instagram-Konto-ID: die lange Zahl (beginnt meist mit 1784) unter deinem
 # Kontonamen im Meta-Dashboard bei "Zugriffstokens generieren". Nötig bei Tokens,
@@ -22,13 +22,7 @@ instagram_konto_id: "17841474886132946"
 #  Worum geht es? Für wen? Welcher Ton? Was soll es NICHT geben?
 # ------------------------------------------------------------
 account:
-  beschreibung: "Thema: Dinosaurier: verblüffende Fakten, Rekorde und neue Funde. Zielgruppe: Dino-Fans jeden Alters, Familien. Ton: locker und humorvoll, in der Du-Form. Bitte nicht: keine Fantasie-Fakten, keine Filme. Beispiel für einen typischen Post: „Der T. rex lebte näher an uns als am Stegosaurus.“"
-
-  # Look aller KI-Bilder (Bild-Posts und Reels). Beispiele ansehen: Aktion "bildstile" starten.
-  #   "auto" = passend zu deiner Beschreibung
-  #   "foto", "kino", "anime", "comic", "3d", "aquarell", "oelgemaelde", "skizze",
-  #   "pixel", "flach", "vintage", "duester", "fantasy"
-  bildstil: "auto"
+  beschreibung: "Thema: Deutsche Sagen, Märchen und Legenden neu erzählt. Zielgruppe: Erwachsene, die alte Geschichten lieben. Ton: ruhig und nachdenklich, in der Du-Form. Bitte nicht: keine Gewalt gegen Kinder im Detail. Beispiel für einen typischen Post: „Der Rattenfänger von Hameln nahm mehr mit als nur Ratten.“"
 
 # ------------------------------------------------------------
 #  Welche Art von Reels? Genau EINE eintragen (Bild-Posts gibt es bei allen):
@@ -45,12 +39,10 @@ texte:
   # Woher kommen die Texte für Bild-Posts und Text-Reels?
   #   "ki"     = eine kostenlose KI schreibt bei jedem Post einen neuen Text passend
   #              zu deiner Beschreibung (braucht das Cloudflare-Konto, siehe Anleitung)
-  #   "fakten" = überraschende Fakten aus Wikipedia, mit Faktencheck und Quelle im Bild
-  #              (für Sachthemen wie Tiere, Natur, Geschichte, Technik)
-  #   "zitate" = echte Zitate mit Quelle (z.B. Bibelverse, Dichter, Philosophen, Sprichwörter).
-  #              Bibelverse im Wortlaut der Lutherbibel 1912, alle anderen auf Wikiquote geprüft.
+  #   "zitate" = echte Zitate mit Quelle (z.B. Bibelverse, Philosophen, Sprichwörter).
+  #              Bibelverse immer im Wortlaut der Lutherbibel 1912, mit Stelle.
   #   "datei"  = deine eigenen Texte aus inhalte/posts.csv
-  quelle: "fakten"
+  quelle: "zitate"
 
   # Optional: leer lassen = aus deiner Beschreibung abgeleitet
   thema: ""
@@ -69,7 +61,7 @@ bildpost:
   #   "text"         = Text auf Farbverlauf (oder auf deinen Fotos im Ordner hintergruende)
   #   "eigene_fotos" = deine Fotos aus dem Ordner medien, Text darauf
   stil: "ki_mit_text"
-  # Optional, für Profis: eigener Bildstil auf Englisch (überschreibt account → bildstil)
+  # Optional: leer lassen = aus deiner Beschreibung abgeleitet (auf Englisch)
   bildstil: ""
   motiv: ""
 
@@ -161,16 +153,14 @@ geschichten:
   thema: ""
 
   # Worum geht es in den gesprochenen Reels?
-  #   "wissen"         = Tipps, Anleitungen und Fakten zu deinem Thema (passt fast immer).
-  #                      Bei Sachthemen (Tiere, Natur, Geschichte …) Fakten aus Wikipedia,
-  #                      bei Reisezielen aus dem Reiseführer Wikivoyage.
+  #   "wissen"         = Tipps, kleine Anleitungen und Fakten zu deinem Thema (passt fast immer)
   #   "wikipedia"      = wahre Geschichten, Fakten aus Wikipedia, mit Quellenangabe
   #   "nacherzaehlung" = bekannte Geschichten nacherzählt: Bibel, Sagen, Märchen, Mythen, Fabeln.
-  #                      Wo möglich aus dem Originaltext (Lutherbibel 1912, Märchen und Sagen von Wikisource).
+  #                      Bibelgeschichten werden aus dem Originaltext (Lutherbibel 1912) erzählt.
   #   "fiktion"        = die KI erfindet Geschichten zum Thema (z.B. Grusel).
   #                      In der Caption steht automatisch "Fiktive Geschichte".
   #   "eigene_texte"   = aus deinen eigenen Texten in inhalte/geschichten.txt
-  quelle: "wissen"
+  quelle: "nacherzaehlung"
 
   # Optional. Bei "wikipedia": zusätzliche Suchbegriffe (die KI schlägt sonst selbst Artikel vor).
   # Bei "fiktion": Anregungen, aus denen die KI jeweils eine Geschichte erfindet.
@@ -181,7 +171,7 @@ geschichten:
   # Nur bei "wikipedia", optional: Artikel, die zuerst drankommen (genauer Titel aus Wikipedia)
   startartikel: []
 
-  # Optional, für Profis: eigener Bildstil auf Englisch (überschreibt account → bildstil)
+  # Bildstil der KI-Bilder (auf Englisch). Leer lassen = aus deiner Beschreibung abgeleitet.
   bildstil: ""
 
   # Farbe für hervorgehobene Wörter im Untertitel
