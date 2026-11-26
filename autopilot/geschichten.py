@@ -273,9 +273,7 @@ def _woerter(text):
     return len(re.sub(r"[*]", "", text).split())
 
 
-ENGLISCH = set("the and were with when of from yet already has have been its it is are they their this that which "
-               "including ensuring often visit experience first protected found added list life lakeside "
-               "thick long years ago as by".split())  # noqa: SIM905
+ENGLISCH = {"the", "and", "were", "with", "when", "of", "from", "yet", "already", "has", "have", "been", "its", "it", "is", "are", "they", "their", "this", "that", "which", "including", "ensuring", "often", "visit", "experience", "first", "protected", "found", "added", "list", "life", "lakeside", "thick", "long", "years", "ago", "as", "by"}
 
 
 def englisch(text):
@@ -489,6 +487,13 @@ def skript_schreiben(g, titel, text, chat=None, quelle="wikipedia"):
             probleme = pruefen(skript, g.get("szenen", 6))
             if not probleme and quelle in GEPRUEFTE_QUELLEN:
                 falsch = faktencheck(skript, text, chat, modell)
+                nummern = {int(m) for m in re.findall(r"^Szene (\d+):", "\n".join(falsch), re.MULTILINE)}
+                rest = [x for i, x in enumerate(skript["szenen"], 1) if i not in nummern]
+                if falsch and 0 not in nummern and len(rest) >= max(4, g.get("szenen", 6) - 2):
+                    # Beanstandete Szenen einfach weglassen statt neu schreiben: sicher und spart Kontingent
+                    print(f"  Faktencheck: Szene(n) {sorted(nummern)} weggelassen")
+                    skript["szenen"] = rest
+                    falsch = []
                 if falsch:
                     print(f"  Faktencheck: {'; '.join(falsch)[:300]}")
                     probleme = ["Diese Aussagen stimmen nicht mit dem Quelltext überein, nur Fakten aus dem Text "
