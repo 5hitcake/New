@@ -273,9 +273,23 @@ def _woerter(text):
     return len(re.sub(r"[*]", "", text).split())
 
 
+ENGLISCH = {"the", "and", "were", "with", "when", "of", "from", "yet", "already", "has", "have", "been", "its", "it", "is", "are", "they", "their", "this", "that", "which", "including", "ensuring", "often", "visit", "experience", "first", "protected", "found", "added", "list", "life", "lakeside", "thick", "long", "years", "ago", "as", "by"}
+
+
+def englisch(text):
+    """True, wenn ein Satz offensichtlich (teilweise) englisch ist."""
+    woerter = re.findall(r"[a-zA-Z']+", str(text).lower())
+    return sum(w in ENGLISCH for w in woerter) >= 2
+
+
 def pruefen(skript, soll=6):
     """Liste von Problemen; leer = in Ordnung."""
     p = []
+    teile = [(skript.get("hook") or {}).get("text", "")] + [s.get("text", "") for s in skript.get("szenen") or []
+                                                           if isinstance(s, dict)] + [skript.get("frage", "")]
+    if any(englisch(t) for t in teile):
+        p.append("Teile sind auf Englisch. Schreibe ALLES auf Deutsch, jeden Satz, auch wenn die Quelle "
+                 "englisch ist oder du auf Englisch nachdenkst")
     hook = skript.get("hook") or {}
     if not hook.get("text") or not hook.get("bild"):
         p.append("hook braucht text und bild")
@@ -457,6 +471,7 @@ def skript_schreiben(g, titel, text, chat=None, quelle="wikipedia"):
     else:
         modelle = ["test"]
     fehler = []
+    nochmal_gefragt = False
     for modell in modelle:
         for _ in range(2):
             try:
@@ -469,10 +484,26 @@ def skript_schreiben(g, titel, text, chat=None, quelle="wikipedia"):
                     break  # Modell nicht verfügbar
                 continue
             if not skript.get("geeignet", True):
+                if quelle == "wissen_text" and not nochmal_gefragt:
+                    # Artikel passt nur grob: lieber die spannendsten Fakten daraus als gar kein Reel
+                    nochmal_gefragt = True
+                    nachrichten = nachrichten[:2] + [
+                        {"role": "assistant", "content": json.dumps(skript, ensure_ascii=False)},
+                        {"role": "user", "content": "Dann wähle stattdessen die staunenswertesten Fakten, die IM "
+                         "ARTIKEL stehen und zum Account passen, und gib dem Reel einen neuen passenden \"titel\". "
+                         "\"geeignet\": true. Nur JSON."}]
+                    continue
                 return None, f"passt nicht: {skript.get('grund', '')}"
             probleme = pruefen(skript, g.get("szenen", 6))
             if not probleme and quelle in GEPRUEFTE_QUELLEN:
                 falsch = faktencheck(skript, text, chat, modell)
+                nummern = {int(m) for m in re.findall(r"^Szene (\d+):", "\n".join(falsch), re.MULTILINE)}
+                rest = [x for i, x in enumerate(skript["szenen"], 1) if i not in nummern]
+                if falsch and 0 not in nummern and len(rest) >= max(4, g.get("szenen", 6) - 2):
+                    # Beanstandete Szenen einfach weglassen statt neu schreiben: sicher und spart Kontingent
+                    print(f"  Faktencheck: Szene(n) {sorted(nummern)} weggelassen")
+                    skript["szenen"] = rest
+                    falsch = []
                 if falsch:
                     print(f"  Faktencheck: {'; '.join(falsch)[:300]}")
                     probleme = ["Diese Aussagen stimmen nicht mit dem Quelltext überein, nur Fakten aus dem Text "
@@ -566,7 +597,7 @@ def _wissensartikel(titel, http=HTTP):
     try:
         a = artikel(titel, http)
         if not a:
-            treffer = suchen(titel, "de", http, random.Random(0))[:1]
+            treffer = [t for t in suchen(titel, "de", http, random.Random(0))[:3] if _titel_passt(t, titel)][:1]
             a = artikel(treffer[0], http) if treffer else None
     except Exception as exc:  # noqa: BLE001 - dann eben ohne Artikel
         print(f"  Wikipedia nicht erreichbar ({type(exc).__name__}), schreibe ohne Artikel")
@@ -599,7 +630,7 @@ def _wissen(g, verlauf, http=HTTP, chat=None, zufall=random):
             quelle = ""
         if skript:
             skript.update(quelle_art="wissen", quelle=quelle, titel=skript.get("titel") or titel,
-                          merken=[f"wissen:{titel}"],
+                          merken=list(dict.fromkeys([f"wissen:{titel}", f"wissen:{skript.get('titel') or titel}"])),
                           quelle_projekt=projekt if quelle else "")
             print(f"+ {titel}: Skript geschrieben")
             return skript

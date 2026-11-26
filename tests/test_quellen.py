@@ -302,7 +302,7 @@ def test_fakten_aus_wikipedia_mit_faktencheck(monkeypatch):
 
 
 def test_faktencheck_laesst_skript_neu_schreiben():
-    antworten = iter([json.dumps(SKRIPT), json.dumps({"falsch": [2], "gruende": ["Ort falsch"]}),
+    antworten = iter([json.dumps(SKRIPT), json.dumps({"falsch": [0], "gruende": ["Ort falsch"]}),
                       json.dumps(SKRIPT), json.dumps({"falsch": []})])
     gesehen = []
 
@@ -315,3 +315,16 @@ def test_faktencheck_laesst_skript_neu_schreiben():
                                                  quelle="nacherzaehlung_text")
     assert skript and grund is None
     assert any("Ort falsch" in x for x in gesehen)
+
+
+def test_faktencheck_laesst_beanstandete_szene_weg():
+    antworten = iter([json.dumps(SKRIPT), json.dumps({"falsch": [2], "gruende": ["Zahl falsch"]})])
+    g = {"thema": "Bibel", "beschreibung": "x", "szenen": 6, "text_ki": "cloudflare"}
+    skript, grund = geschichten.skript_schreiben(g, "Titel", "Ein Mensch hatte zwei Söhne.",
+                                                 lambda n, m: next(antworten), quelle="nacherzaehlung_text")
+    assert grund is None and len(skript["szenen"]) == len(SKRIPT["szenen"]) - 1
+
+
+def test_englische_saetze_werden_erkannt():
+    assert geschichten.englisch("The first piles were discovered in 1853 when workers dug.")
+    assert not geschichten.englisch("Was du über die Pfahlbauten wissen musst, ist erstaunlich.")
