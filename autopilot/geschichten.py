@@ -273,9 +273,25 @@ def _woerter(text):
     return len(re.sub(r"[*]", "", text).split())
 
 
+ENGLISCH = set("the and were with when of from yet already has have been its it is are they their this that which "
+               "including ensuring often visit experience first protected found added list life lakeside "
+               "thick long years ago as by".split())  # noqa: SIM905
+
+
+def englisch(text):
+    """True, wenn ein Satz offensichtlich (teilweise) englisch ist."""
+    woerter = re.findall(r"[a-zA-Z']+", str(text).lower())
+    return sum(w in ENGLISCH for w in woerter) >= 2
+
+
 def pruefen(skript, soll=6):
     """Liste von Problemen; leer = in Ordnung."""
     p = []
+    teile = [(skript.get("hook") or {}).get("text", "")] + [s.get("text", "") for s in skript.get("szenen") or []
+                                                           if isinstance(s, dict)] + [skript.get("frage", "")]
+    if any(englisch(t) for t in teile):
+        p.append("Teile sind auf Englisch. Schreibe ALLES auf Deutsch, jeden Satz, auch wenn die Quelle "
+                 "englisch ist oder du auf Englisch nachdenkst")
     hook = skript.get("hook") or {}
     if not hook.get("text") or not hook.get("bild"):
         p.append("hook braucht text und bild")

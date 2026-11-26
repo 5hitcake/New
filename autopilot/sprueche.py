@@ -192,6 +192,11 @@ def fakt(cfg, verlauf, chat=None, http=None, zufall=None):
             except Exception as exc:  # noqa: BLE001
                 fehler.append(f"{modell}: {exc}")
                 continue
+            if geschichten.englisch(eintrag["text"]):
+                fehler.append(f"{a[1]}: Englisch")
+                nachrichten = nachrichten[:2] + [{"role": "assistant", "content": antwort}, {
+                    "role": "user", "content": "Der Satz ist englisch. Schreibe ihn auf Deutsch. Nur JSON."}]
+                continue
             if re.search(r"\b(dort|hier|damals|diese[rsmn]?|deren|dessen)\b", eintrag["text"].split(",")[0], re.IGNORECASE) \
                     or eintrag["text"].split()[0].lower() in ("er", "sie", "es", "ihr", "sein", "seine"):
                 fehler.append(f"{a[1]}: ohne Zusammenhang unverständlich")
