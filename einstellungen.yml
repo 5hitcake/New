@@ -52,7 +52,7 @@ texte:
   #   "eigene_quellen" = Fakten aus deinen eigenen Unterlagen im Ordner quellen
   #              (PDFs, Textdateien, Webseiten aus quellen/links.txt), mit Faktencheck
   #   "datei"  = deine eigenen Texte aus inhalte/posts.csv
-  quelle: "eigene_quellen"
+  quelle: "fakten"
 
   # Optional: leer lassen = aus deiner Beschreibung abgeleitet
   thema: ""
@@ -173,7 +173,7 @@ geschichten:
   #                      In der Caption steht automatisch "Fiktive Geschichte".
   #   "eigene_texte"   = aus deinen eigenen Texten in inhalte/geschichten.txt
   #   "eigene_quellen" = aus deinen Unterlagen im Ordner quellen (PDFs, Textdateien, Webseiten)
-  quelle: "eigene_quellen"
+  quelle: "wissen"
 
   # Bilder im Reel: "ki" (passend erzeugt), "eigene" (deine Fotos aus dem Ordner medien)
   # oder "gemischt" (abwechselnd eigene Fotos und KI-Bilder)
@@ -235,4 +235,5 @@ eigene_medien:
   # Bei false entsteht die Caption nur aus den Hashtags.
   text_einblenden: true
 
-ki_anbieter: "pollinations"
+ki_anbieter: "cloudflare"
+ki_textmodell: "@cf/openai/gpt-oss-120b"
